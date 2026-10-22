@@ -35,6 +35,17 @@ let sharpPromise: Promise<SharpModule> | null = null;
 
 async function loadSharp(): Promise<SharpModule | null> {
   try {
+    // Trace hint (v2.8.66.3): the libvips .so has no JS entry the build's
+    // file tracer can follow, so it was dropped from serverless bundles and
+    // sharp dlopen failed on Vercel. Importing the package stub here pins
+    // the whole package into the traced output. Own try/catch — on
+    // non-glibc dev platforms the stub is simply absent.
+    // @ts-expect-error — platform binary package without type declarations
+    await import("@img/sharp-libvips-linux-x64/lib");
+  } catch {
+    /* trace hint only — sharp may still load via its own platform binaries */
+  }
+  try {
     sharpPromise ??= import("sharp");
     return await sharpPromise;
   } catch (error) {

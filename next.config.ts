@@ -9,7 +9,31 @@ const nextConfig: NextConfig = {
   // "sharp" (v2.8.66.2) — Next 16 dropped sharp from its default externals,
   // so Turbopack bundled the native binary into route chunks and every
   // sharp-importing route 500'd at module init on Vercel. External it is.
-  serverExternalPackages: ["@electric-sql/pglite", "pg", "sharp"],
+  // "@img/sharp-libvips-linux-x64" (v2.8.66.3) — sharp's binding .node
+  // dlopens libvips-cpp.so from this sibling package at runtime; the file
+  // tracer shipped the binding but NOT the 18.7 MB libvips package (no JS
+  // entry to follow) → ERR_DLOPEN_FAILED on Vercel. External + explicit
+  // trace includes below pin both binaries into the function bundles.
+  serverExternalPackages: [
+    "@electric-sql/pglite",
+    "pg",
+    "sharp",
+    "@img/sharp-libvips-linux-x64",
+  ],
+  // v2.8.66.3 — belt & braces: the two sharp-importing routes get the full
+  // native binary set no matter what the tracer decides on its own.
+  outputFileTracingIncludes: {
+    "/api/media/thumb": [
+      "./node_modules/sharp/**",
+      "./node_modules/@img/sharp-linux-x64/**",
+      "./node_modules/@img/sharp-libvips-linux-x64/**",
+    ],
+    "/api/admin/media/finalize": [
+      "./node_modules/sharp/**",
+      "./node_modules/@img/sharp-linux-x64/**",
+      "./node_modules/@img/sharp-libvips-linux-x64/**",
+    ],
+  },
   // The preview panel proxies the dev server through a *.space-z.ai host —
   // without this Next blocks dev-only assets (fonts, HMR) cross-origin.
   allowedDevOrigins: ["*.space-z.ai"],

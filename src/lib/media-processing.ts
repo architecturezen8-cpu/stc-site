@@ -21,6 +21,16 @@ type SharpFactory = typeof import("sharp").default;
 let sharpPromise: Promise<SharpFactory> | null = null;
 async function getSharp(): Promise<SharpFactory> {
   try {
+    // Trace hint (v2.8.66.3): pins the libvips binary package into the
+    // serverless bundle — sharp's binding dlopens libvips-cpp.so from this
+    // sibling and the file tracer drops packages without a JS entry point.
+    // Own try/catch — on non-glibc dev platforms the stub is simply absent.
+    // @ts-expect-error — platform binary package without type declarations
+    await import("@img/sharp-libvips-linux-x64/lib");
+  } catch {
+    /* trace hint only — sharp may still load via its own platform binaries */
+  }
+  try {
     sharpPromise ??= import("sharp").then((m) => m.default);
     return await sharpPromise;
   } catch (error) {
