@@ -1,0 +1,1823 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --surface: #ffffff;
+  --surface-2: #f6f7f8;
+  --fg: #0b0b0a;
+  /* Native controls (select dropdowns, date pickers) follow the theme —
+     fixes white-on-white option lists in dark mode. */
+  color-scheme: light;
+}
+
+.dark {
+  --surface: #0d0d0b;
+  --surface-2: #141310;
+  --fg: #f5f3ec;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-fg: var(--fg);
+
+  --color-gold: #ffd444;
+  --color-ink: #0b0b0a;
+  --color-coal: #151512;
+  --color-paper: #f6f7f8;
+  --color-card: #1d1b15;
+  --color-mist: #bfc6c4;
+
+  --font-display: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-soft: 0 24px 60px -24px rgba(11, 11, 10, 0.22);
+  --shadow-lift: 0 16px 48px -20px rgba(11, 11, 10, 0.35);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--surface);
+  color: var(--fg);
+  overflow-x: hidden;
+  transition:
+    background-color 0.4s ease,
+    color 0.4s ease;
+}
+
+::selection {
+  background: #ffd444;
+  color: #0b0b0a;
+}
+
+/* ---------- Premium minimal scrollbar ---------- */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--fg) 22%, transparent);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gold);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--fg) 22%, transparent) transparent;
+}
+*:hover {
+  scrollbar-color: var(--color-gold) transparent;
+}
+
+/* Dark-mode admin surfaces keep the same refined bar */
+.dark ::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-thumb {
+  background-clip: padding-box;
+}
+
+/* Native select option lists stay readable in both themes */
+select option,
+select optgroup {
+  background-color: var(--surface);
+  color: var(--fg);
+}
+
+/* ---------- Keyframes ---------- */
+@keyframes kenburns {
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+  100% {
+    transform: scale(1.1) translate(-1.25%, 1%);
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(44px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scrollLine {
+  0% {
+    transform: scaleY(0);
+    transform-origin: top;
+  }
+  45% {
+    transform: scaleY(1);
+    transform-origin: top;
+  }
+  55% {
+    transform: scaleY(1);
+    transform-origin: bottom;
+  }
+  100% {
+    transform: scaleY(0);
+    transform-origin: bottom;
+  }
+}
+
+/* ---------- Custom helpers ---------- */
+.animate-kenburns {
+  animation: kenburns 30s ease-in-out infinite alternate;
+}
+
+/* ---------- Admin falcon emblem: calm white-circle crest (no motion) ---------- */
+
+.animate-fade-up {
+  animation: fadeUp 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.scroll-line {
+  animation: scrollLine 2.4s cubic-bezier(0.76, 0, 0.24, 1) infinite;
+}
+
+/* ---------- Timeline rail: travelling downlight ---------- */
+@keyframes railTravel {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(1000%);
+  }
+}
+
+@keyframes dotPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 212, 68, 0.55);
+    border-color: rgba(255, 212, 68, 1);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(255, 212, 68, 0);
+    border-color: rgba(255, 212, 68, 0.55);
+  }
+}
+
+.timeline-rail {
+  /* Position comes from Tailwind (absolute) — do NOT set position here,
+     unlayered CSS overrides layered utilities and collapses the rail. */
+  overflow: hidden;
+}
+.timeline-rail::after {
+  content: "";
+  position: absolute;
+  inset-inline: -1px;
+  top: 0;
+  height: 14%;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(255, 212, 68, 0.9) 35%,
+    #ffd444 50%,
+    rgba(255, 212, 68, 0.9) 65%,
+    transparent
+  );
+  box-shadow:
+    0 0 8px 1px rgba(255, 212, 68, 0.65),
+    0 0 20px 4px rgba(255, 212, 68, 0.3);
+  animation: railTravel 6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.timeline-dot {
+  animation: dotPulse 2.6s ease-in-out infinite;
+}
+
+/* ---------- Live channel: premium clean badges ---------- */
+@keyframes livePing {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  70%,
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.live-badge {
+  --lb-tint: #ef4444;
+  --lb-dot: #f87171;
+  --lb-label: rgba(255, 255, 255, 0.92);
+  --lb-detail: #fecaca;
+  --lb-ring: color-mix(in srgb, var(--lb-tint) 30%, transparent);
+  --lb-bg: color-mix(in srgb, var(--lb-tint) 7%, rgba(9, 10, 9, 0.5));
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--lb-label);
+  background: var(--lb-bg);
+  border: 1px solid var(--lb-ring);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.live-badge__dot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 8px;
+  height: 8px;
+  flex: none;
+}
+.live-badge__ping {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--lb-dot);
+  opacity: 0.5;
+  animation: livePing 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.live-badge__core {
+  position: relative;
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 999px;
+  background: var(--lb-dot);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--lb-dot) 55%, transparent);
+}
+.live-badge__divider {
+  width: 1px;
+  height: 12px;
+  flex: none;
+  background: currentColor;
+  opacity: 0.25;
+}
+.live-badge__detail {
+  color: var(--lb-detail);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+}
+
+.live-badge--scheduled {
+  --lb-tint: #10b981;
+  --lb-dot: #34d399;
+  --lb-detail: #a7f3d0;
+}
+.live-badge--idle {
+  --lb-ring: rgba(255, 255, 255, 0.14);
+  --lb-bg: rgba(9, 10, 9, 0.42);
+  color: rgba(255, 255, 255, 0.6);
+}
+.live-badge--mini {
+  gap: 0.45rem;
+  padding: 0.32rem 0.7rem;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+}
+.live-badge--mini .live-badge__dot {
+  width: 7px;
+  height: 7px;
+}
+.live-badge--mini .live-badge__core {
+  width: 5.5px;
+  height: 5.5px;
+}
+
+/* Smooth theme switch — temporarily applied while toggling */
+html.theming,
+html.theming * {
+  transition:
+    background-color 0.5s ease,
+    border-color 0.5s ease,
+    color 0.5s ease !important;
+}
+
+/* Scroll reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(36px);
+  transition:
+    opacity 1s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 1s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Film grain overlay */
+.grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  opacity: 0.12;
+  mix-blend-mode: overlay;
+}
+
+/* ---------- Events calendar: buttery month transitions ---------- */
+@keyframes calGridNext {
+  from {
+    opacity: 0;
+    transform: translateX(52px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+@keyframes calGridPrev {
+  from {
+    opacity: 0;
+    transform: translateX(-52px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+@keyframes calTitleNext {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+@keyframes calTitlePrev {
+  from {
+    opacity: 0;
+    transform: translateY(-22px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+@keyframes calItemUp {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.cal-grid-next {
+  animation: calGridNext 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.cal-grid-prev {
+  animation: calGridPrev 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.cal-title-next {
+  animation: calTitleNext 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.cal-title-prev {
+  animation: calTitlePrev 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.cal-item {
+  animation: calItemUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ---------- Gallery: editorial entrances & lightbox ---------- */
+@keyframes gTileIn {
+  from {
+    opacity: 0;
+    transform: translateY(36px) scale(0.97);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+@keyframes gFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes gPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.965);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes gImgSwap {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+@keyframes gLineSweep {
+  from {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  to {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+}
+
+.g-tile {
+  animation: gTileIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.g-fade {
+  animation: gFadeIn 0.35s ease-out both;
+}
+.g-panel {
+  /* "backwards" (not "both"): once the entrance finishes the transform is
+     cleared, so panels never become containing blocks for fixed children. */
+  animation: gPanelIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.g-img-swap {
+  animation: gImgSwap 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.g-line {
+  animation: gLineSweep 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+
+/* ---------- Cadeting: cinematic unit transition ---------- */
+@keyframes cineBarTop {
+  from {
+    transform: translateY(-101%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes cineBarBottom {
+  from {
+    transform: translateY(101%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes cineCrest {
+  from {
+    opacity: 0;
+    transform: scale(1.3);
+    filter: blur(16px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+@keyframes cineFadeSoft {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+@keyframes cineOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes cineOverlayOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes cineContentIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes cineSheen {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+.cine-bar-top {
+  animation: cineBarTop 0.85s cubic-bezier(0.76, 0, 0.24, 1) both;
+}
+.cine-bar-bottom {
+  animation: cineBarBottom 0.85s cubic-bezier(0.76, 0, 0.24, 1) both;
+}
+.cine-crest {
+  animation: cineCrest 1.25s cubic-bezier(0.22, 1, 0.36, 1) 0.35s both;
+}
+.cine-name {
+  animation: cineFadeSoft 1.05s ease 0.95s both;
+}
+.cine-sub {
+  animation: cineFadeSoft 1.05s ease 1.25s both;
+}
+.cine-line {
+  animation: cineFadeSoft 0.9s ease 1.5s both;
+}
+.cine-overlay-in {
+  animation: cineOverlayIn 0.55s ease both;
+}
+.cine-overlay-out {
+  animation: cineOverlayOut 0.9s ease both;
+}
+.cine-content {
+  animation: cineContentIn 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.cine-sheen {
+  animation: cineSheen 1.5s cubic-bezier(0.45, 0, 0.2, 1) 1.7s infinite;
+}
+
+/* Nav link underline sweep */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  height: 1.5px;
+  width: 100%;
+  background: #ffd444;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav-link:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* Elegant link arrow */
+.slide-arrow {
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.group:hover .slide-arrow {
+  transform: translateX(5px);
+}
+
+/* ── fadeIn utility keyframe (chooser + overlays) ─────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── SITE CINEMATIC PRELOADER — "The Opening" ───────────────────────────
+   Bootstrap contract: an inline <head> script adds `stc-preloader-skip`
+   (hide instantly, no flash) or `stc-preloader-live` (play + scroll lock)
+   before first paint. The client component reads the class to decide.
+   Scroll lock is doubly safe: the html class AND a :has() rule keyed to
+   the overlay existing, so an unmount can never leave the page frozen. */
+.stc-preloader-skip [data-spo-root] { display: none !important; }
+html.stc-preloader-live,
+html.stc-preloader-live body { overflow: hidden !important; }
+body:has([data-spo-root]) { overflow: hidden; }
+/* Belt-and-braces: when the visit is SKIPPED, no overlay should ever be
+   able to hold the scroll lock — even a stale/un-hydrated one. */
+html.stc-preloader-skip body { overflow: auto !important; }
+/* BOOT CURTAIN (v2.8.32.3) — the <head> bootstrap adds this class when the
+   cinematic WILL play, before first paint. The document stays invisible on
+   a stage-1 black background so the home page can never flash ahead of the
+   preloader (first-time visitors saw content → then the black overlay).
+   The overlay itself is exempt so it covers the moment it mounts; the
+   component's release effect (or the 4s bootstrap failsafe) removes the
+   class, which also crossfades the site in under the exit fade. */
+html.stc-preloader-boot,
+html.stc-preloader-boot body { background: #050505 !important; }
+html.stc-preloader-boot body { visibility: hidden !important; }
+html.stc-preloader-boot [data-spo-root] { visibility: visible !important; }
+
+.spo-root {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  overflow: hidden;
+  background: #050505;
+  color: #ffd444;
+  display: grid;
+  place-items: center;
+  animation: fadeIn 200ms ease-out both;
+}
+
+/* Curtains — plain black halves, animated only by the curtain exit */
+.spo-curtain {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50.5%;
+  background: #050505;
+  /* No z-index — the black halves sit UNDER the scene content (z-index 2)
+     and only slide apart during the curtain exit. */
+  pointer-events: none;
+}
+.spo-curtain-l { left: 0; }
+.spo-curtain-r { right: 0; }
+@keyframes spoCurtainL { to { transform: translateX(-103%); } }
+@keyframes spoCurtainR { to { transform: translateX(103%); } }
+
+/* Exit beats */
+.spo-out-fade { animation: spoRootFade 1050ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+.spo-out-curtain .spo-curtain-l { animation: spoCurtainL 950ms cubic-bezier(0.77, 0, 0.18, 1) 140ms both; }
+.spo-out-curtain .spo-curtain-r { animation: spoCurtainR 950ms cubic-bezier(0.77, 0, 0.18, 1) 140ms both; }
+.spo-out-curtain.spo-root { animation: spoRootFade 420ms ease 950ms both; }
+@keyframes spoRootFade { to { opacity: 0; visibility: hidden; } }
+
+/* The persistent stage — circle + logo on top, one swapping slot below */
+.spo-stage {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+  padding: 0 20px;
+}
+
+/* White circle holding the school crest — appears first, never leaves */
+.spo-disc {
+  position: relative;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: #191914;
+  padding: 22px;
+  box-shadow: 0 0 0 1px rgba(255, 212, 68, 0.4), 0 22px 70px rgba(255, 212, 68, 0.14);
+  animation: spoDiscIn 900ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+}
+
+/* Optional golden ring orbiting the white circle (admin on/off) — a thin
+   rotating arc pair, masked to a hairline so it reads as live light. */
+.spo-ring {
+  position: absolute;
+  inset: -10px;
+  border-radius: 9999px;
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 212, 68, 0) 0%,
+    rgba(255, 212, 68, 0.95) 14%,
+    rgba(255, 212, 68, 0) 34%,
+    rgba(255, 212, 68, 0) 55%,
+    rgba(255, 212, 68, 0.6) 74%,
+    rgba(255, 212, 68, 0) 92%
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 1.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 1.5px));
+  animation: spoRingSpin 5.5s linear infinite;
+  pointer-events: none;
+}
+@keyframes spoRingSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes spoDiscIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+.spo-disc-plain { background: transparent; color: #ffd444; box-shadow: none; padding: 0; }
+.spo-crest { width: 100%; height: 100%; object-fit: contain; }
+svg.spo-crest { width: 74%; height: 74%; }
+
+/* The slot below the circle — fixed height so stage swaps never jump */
+.spo-slot {
+  position: relative;
+  height: 128px;
+  width: min(560px, 88vw);
+  display: grid;
+  place-items: center;
+}
+
+/* Stage 1 — sharp-edged GOLD meter + rotating short sentences */
+.spo-meter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+  animation: spoMeterIn 700ms cubic-bezier(0.22, 1, 0.36, 1) 500ms both;
+}
+@keyframes spoMeterIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.spo-meter-out { animation: spoMeterOut 400ms ease both; }
+@keyframes spoMeterOut {
+  to { opacity: 0; transform: translateY(-8px); filter: blur(4px); }
+}
+.spo-track {
+  /* Slightly longer than the 560px slot and a touch thinner — the bar
+     overhangs the slot edges by design and stays perfectly centred. */
+  width: min(660px, 94vw);
+  height: 1.5px;
+  background: rgba(255, 212, 68, 0.16);
+  overflow: hidden;
+}
+.spo-fill {
+  height: 100%;
+  background: #ffd444;
+  transition: width 260ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+.spo-line {
+  min-height: 1.5em;
+  margin: 0;
+  /* Sentences size follows the admin slider (—spo-lines-scale, 1 = 100%). */
+  font-size: calc(11px * var(--spo-lines-scale, 1));
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+  text-align: center;
+  animation: spoLine 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes spoLine {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Stage 2 — the name draws letter-by-letter, then the motto lands */
+.spo-reveal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.spo-name {
+  margin: 0;
+  font-family: var(--font-display), "Inter Tight", sans-serif;
+  /* Title size follows the admin slider (—spo-name-scale, 1 = 100%). */
+  font-size: calc(clamp(1.45rem, 4.6vw, 2.5rem) * var(--spo-name-scale, 1));
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  line-height: 1.12;
+  color: #ffffff;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.spo-name-char {
+  display: inline-block;
+  opacity: 0;
+  animation: spoChar 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes spoChar {
+  from { opacity: 0; transform: translateY(16px); filter: blur(7px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+.spo-motto {
+  margin: 0;
+  font-family: var(--font-sans), "Inter", sans-serif;
+  /* Motto (subheading) size follows the admin slider (—spo-motto-scale). */
+  font-size: calc(11.5px * var(--spo-motto-scale, 1));
+  font-weight: 600;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: #ffd444;
+  opacity: 0;
+  animation: spoLine 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spo-disc, .spo-meter, .spo-line, .spo-name-char, .spo-motto, .spo-ring { animation-duration: 1ms !important; animation-delay: 0ms !important; }
+}
+
+
+/* ── Slow-network route loader — thin ring + "loading" on black ──────── */
+.rtp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 480;
+  background: #050505;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 18px;
+  animation: fadeIn 260ms ease-out both;
+  transition: opacity 280ms ease;
+}
+.rtp-ring {
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 212, 68, 0.16);
+  border-top-color: #ffd444;
+  animation: rtpSpin 900ms linear infinite;
+}
+@keyframes rtpSpin { to { transform: rotate(360deg); } }
+.rtp-word {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  animation: rtpPulse 1.6s ease-in-out infinite;
+}
+@keyframes rtpPulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.95; }
+}
+
+/* ── Admin responsive + perf (v2.8.24) ── */
+/* Mobile slide-in drawer: stop scroll chaining to the locked body and give
+   the nav a thin dark scrollbar. Desktop sidebar is untouched. */
+.adm-drawer nav {
+  overscroll-behavior: contain;
+}
+.adm-drawer nav::-webkit-scrollbar {
+  width: 6px;
+}
+.adm-drawer nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .adm-drawer,
+  .adm-drawer + .fixed {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* ── Admin Studio theme system (v2.8.25) ───────────────────────────────
+   The whole Admin Studio renders inside [data-admin-theme] (AdminShell).
+   Themes are CSS-variable presets; the exact Tailwind arbitrary utilities
+   used across the admin components are remapped here so every page,
+   dialog, slider and checkbox follows the selected cinematic theme.
+   Presets: gold (default cinematic) · royal (#010736) · violet (#792CA2) */
+[data-admin-theme] {
+  --adm-accent: #ffd444;
+  --adm-ink: #0b0b0a;
+  --adm-glow-a: rgba(255, 212, 68, 0.13);
+  --adm-glow-b: rgba(255, 176, 32, 0.055);
+}
+[data-admin-theme="royal"] {
+  --adm-accent: #8fb2ff;
+  --adm-ink: #051031;
+  --adm-glow-a: rgba(23, 62, 195, 0.32);
+  --adm-glow-b: rgba(1, 7, 54, 0.62);
+}
+[data-admin-theme="violet"] {
+  --adm-accent: #d795ff;
+  --adm-ink: #1c0829;
+  --adm-glow-a: rgba(121, 44, 162, 0.4);
+  --adm-glow-b: rgba(64, 18, 92, 0.34);
+}
+[data-admin-theme="dark"] {
+  --adm-accent: #ffd444;
+  --adm-ink: #0b0b0a;
+  --adm-glow-a: rgba(255, 255, 255, 0.045);
+  --adm-glow-b: rgba(255, 255, 255, 0.02);
+}
+
+/* Cinematic canvas — a viewport-FIXED glow layer injected as .adm-canvas
+   (first child of .adm-root). Anchoring the two radial glows to the viewport
+   instead of the (very tall) page element keeps the theme gradient visible
+   at EVERY scroll position, on every device — phones ignore
+   background-attachment: fixed, so the old element-anchored version only
+   painted a small area near the top/bottom of the page. */
+.adm-root {
+  isolation: isolate; /* keep the negative-z canvas above our bg, below content */
+}
+.adm-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(1200px 800px at 88% -12%, var(--adm-glow-a), transparent 62%),
+    radial-gradient(1100px 540px at 50% -16%, var(--adm-glow-a), transparent 66%),
+    radial-gradient(1000px 760px at -12% 112%, var(--adm-glow-b), transparent 58%);
+}
+
+/* The sticky header is now a glass pane: the viewport-fixed canvas glows
+   show through it, so the theme gradient covers the TOP of the studio too
+   (the old opaque bar cut the glow off exactly there). header.adm-header
+   out-specifies the .bg-[#0a0a09] remap below it. */
+[data-admin-theme] header.adm-header {
+  background-color: color-mix(in srgb, #060608 72%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Themed scrollbars — every admin scroll area follows the accent ────
+   scrollbar-color inherits to all descendants; the ::-webkit rules cover
+   Chromium/Safari. (The page scrollbar is themed from AdminShell via an
+   injected html rule, removed on unmount so the public site is untouched.) */
+[data-admin-theme] {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--adm-accent) 34%, rgba(255, 255, 255, 0.12)) transparent;
+}
+[data-admin-theme] ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+[data-admin-theme] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+[data-admin-theme] ::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  background-color: color-mix(in srgb, var(--adm-accent) 34%, rgba(255, 255, 255, 0.12));
+}
+[data-admin-theme] ::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--adm-accent) 58%, rgba(255, 255, 255, 0.2));
+  background-clip: padding-box;
+}
+/* Local overrides that used to hard-code white thumbs */
+[data-admin-theme] .hscroll {
+  scrollbar-color: color-mix(in srgb, var(--adm-accent) 34%, rgba(255, 255, 255, 0.12)) transparent;
+}
+[data-admin-theme] .hscroll::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--adm-accent) 34%, rgba(255, 255, 255, 0.12));
+}
+[data-admin-theme] .adm-drawer nav::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--adm-accent) 34%, rgba(255, 255, 255, 0.12));
+}
+[data-admin-theme] .bg-\[\#0a0a09\] {
+  background-color: #060608;
+}
+[data-admin-theme] .bg-\[\#090908\] { background-color: #070709; }
+[data-admin-theme] .bg-\[\#060605\] { background-color: #050507; }
+
+/* Panels/sidebar pick up a whisper of the canvas so the theme feels lit
+   from within (kept almost opaque — no expensive blur on big surfaces). */
+[data-admin-theme] .bg-\[\#0d0d0b\] { background-color: rgba(11, 11, 15, 0.92); }
+[data-admin-theme] .bg-\[\#0d0d0b\]\/95 { background-color: rgba(11, 11, 15, 0.92); }
+[data-admin-theme] .bg-\[\#0b0b0a\] { background-color: #08080a; }
+[data-admin-theme] .bg-\[\#0b0b0a\]\/95 { background-color: rgba(8, 8, 10, 0.92); }
+
+/* Accent remap — gold becomes the theme accent everywhere. */
+[data-admin-theme] .bg-\[\#ffd444\] { background-color: var(--adm-accent); }
+[data-admin-theme] .hover\:bg-\[\#ffd444\]:hover { background-color: var(--adm-accent); }
+[data-admin-theme] .bg-\[\#ffd444\]\/5 { background-color: color-mix(in srgb, var(--adm-accent) 5%, transparent); }
+[data-admin-theme] .bg-\[\#ffd444\]\/10 { background-color: color-mix(in srgb, var(--adm-accent) 10%, transparent); }
+[data-admin-theme] .bg-\[\#ffd444\]\/12 { background-color: color-mix(in srgb, var(--adm-accent) 12%, transparent); }
+[data-admin-theme] .bg-\[\#ffd444\]\/15 { background-color: color-mix(in srgb, var(--adm-accent) 15%, transparent); }
+[data-admin-theme] .bg-\[\#ffd444\]\/25 { background-color: color-mix(in srgb, var(--adm-accent) 25%, transparent); }
+[data-admin-theme] .hover\:bg-\[\#ffd444\]\/5:hover { background-color: color-mix(in srgb, var(--adm-accent) 5%, transparent); }
+[data-admin-theme] .hover\:bg-\[\#ffd444\]\/20:hover { background-color: color-mix(in srgb, var(--adm-accent) 20%, transparent); }
+[data-admin-theme] .hover\:bg-\[\#ffd444\]\/25:hover { background-color: color-mix(in srgb, var(--adm-accent) 25%, transparent); }
+[data-admin-theme] .text-\[\#ffd444\] { color: var(--adm-accent); }
+[data-admin-theme] .text-\[\#ffd444\]\/70 { color: color-mix(in srgb, var(--adm-accent) 70%, transparent); }
+[data-admin-theme] .text-\[\#ffd444\]\/80 { color: color-mix(in srgb, var(--adm-accent) 80%, transparent); }
+[data-admin-theme] .text-\[\#ffd444\]\/90 { color: color-mix(in srgb, var(--adm-accent) 90%, transparent); }
+[data-admin-theme] .hover\:text-\[\#ffd444\]:hover { color: var(--adm-accent); }
+[data-admin-theme] .border-\[\#ffd444\] { border-color: var(--adm-accent); }
+[data-admin-theme] .border-\[\#ffd444\]\/25 { border-color: color-mix(in srgb, var(--adm-accent) 25%, transparent); }
+[data-admin-theme] .border-\[\#ffd444\]\/40 { border-color: color-mix(in srgb, var(--adm-accent) 40%, transparent); }
+[data-admin-theme] .border-\[\#ffd444\]\/45 { border-color: color-mix(in srgb, var(--adm-accent) 45%, transparent); }
+[data-admin-theme] .border-\[\#ffd444\]\/50 { border-color: color-mix(in srgb, var(--adm-accent) 50%, transparent); }
+[data-admin-theme] .hover\:border-\[\#ffd444\]:hover { border-color: var(--adm-accent); }
+[data-admin-theme] .hover\:border-\[\#ffd444\]\/40:hover { border-color: color-mix(in srgb, var(--adm-accent) 40%, transparent); }
+[data-admin-theme] .hover\:border-\[\#ffd444\]\/50:hover { border-color: color-mix(in srgb, var(--adm-accent) 50%, transparent); }
+[data-admin-theme] .hover\:border-\[\#ffd444\]\/55:hover { border-color: color-mix(in srgb, var(--adm-accent) 55%, transparent); }
+[data-admin-theme] .hover\:border-\[\#ffd444\]\/60:hover { border-color: color-mix(in srgb, var(--adm-accent) 60%, transparent); }
+[data-admin-theme] .hover\:border-\[\#ffd444\]\/70:hover { border-color: color-mix(in srgb, var(--adm-accent) 70%, transparent); }
+[data-admin-theme] .focus\:border-\[\#ffd444\]:focus { border-color: var(--adm-accent); }
+[data-admin-theme] .ring-\[\#ffd444\]\/60 { --tw-ring-color: color-mix(in srgb, var(--adm-accent) 60%, transparent); }
+[data-admin-theme] .ring-\[\#ffd444\]\/70 { --tw-ring-color: color-mix(in srgb, var(--adm-accent) 70%, transparent); }
+[data-admin-theme] .accent-\[\#ffd444\] { accent-color: var(--adm-accent); }
+
+/* Text/ink that sits ON accent buttons follows the theme ink colour. */
+[data-admin-theme] .text-\[\#0b0b0a\] { color: var(--adm-ink); }
+[data-admin-theme] .hover\:text-\[\#0b0b0a\]:hover { color: var(--adm-ink); }
+
+/* ── Admin form labels never force their grid/flex track wider ─────────
+   Labels are grid/flex items with min-width:auto by default, so a text
+   input holding a long URL inflates the track and overflows the page on
+   phones. min-width:0 lets inputs shrink instead (scroll inside). */
+.adm-root label {
+  min-width: 0;
+}
+
+/* ── Admin selects — text and arrow always fit inside the control ──────
+   Native select arrows overflow rounded/padded controls; replace them
+   with an in-box chevron and reserved right padding (user request 9). */
+.adm-root select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.55)' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 34px;
+  text-overflow: ellipsis;
+}
+
+/* ── Preloader crest box — crest size decoupled from the white circle ──
+   Absolutely positioned over the FULL disc so its percentage sizing is
+   predictable (padding-box percentages made the crest read too small). */
+.spo-crest-box {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  display: grid;
+  place-items: center;
+}
+.spo-crest-box > * {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.spo-crest-box > svg.spo-crest {
+  width: 74%;
+  height: 74%;
+}
+
+/* ── Draggable editor toolbars — drag handle affordance ──────────────── */
+.vtb-handle {
+  cursor: grab;
+  touch-action: none;
+}
+.vtb-handle:active {
+  cursor: grabbing;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spo-crest-box > * { animation: none !important; }
+}
+
+/* ── Sliding rows / scroll areas — keep scrollbars off the content ─────
+   Thin track + real breathing room so a 2px gap never touches elements. */
+.hscroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  overscroll-behavior-x: contain;
+}
+.hscroll::-webkit-scrollbar {
+  height: 5px;
+  width: 5px;
+}
+.hscroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.hscroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   LMS ADMIN STUDIO — dual-theme token scope ("Slate & Ink", v2.8.38.0)
+   Redesigned after the owner's reference (soft pastel CRM look): a cool
+   light-gray canvas, white rounded-3xl cards, ink-black pill accents in
+   light and a soft charcoal mirror in dark — with the school's gold kept
+   ONLY as the crest/focus brand accent. Two token sets:
+   · --la-*  admin chrome (shell, dashboard, settings, auth screens)
+   · utility remaps below pull the shared light-styled managers
+     (LMS Setup / Verification Records / Registration Approvals — also
+     used by /admin) into the active theme. /admin never has the scope
+     class, so it stays untouched.
+   Theme driver: html[data-lmsadmin-theme] set by a boot script in
+   src/app/lms-admin/layout.tsx (localStorage "stc-lmsadmin-theme",
+   default dark) BEFORE first paint — no flash.
+   ════════════════════════════════════════════════════════════════════ */
+.lms-admin-scope {
+  color-scheme: light;
+  /* Surfaces */
+  --la-bg: #eef0f5;
+  --la-bg-image: radial-gradient(
+    1100px 460px at 50% -180px,
+    rgb(255 255 255 / 0.95),
+    transparent 62%
+  );
+  --la-header-bg: rgb(238 240 245 / 0.85);
+  --la-panel: #ffffff;
+  --la-panel-soft: #f5f7fb;
+  --la-tint-blue: #e8eef9;
+  --la-tint-coral: #fdeee9;
+  --la-tint-gold: #fdf5df;
+  --la-chip: #eef1f7;
+  --la-chip-text: #5d6474;
+  /* Lines */
+  --la-border: #e3e7f0;
+  --la-border-strong: #d2d8e6;
+  --la-divider: #eef0f6;
+  /* Text ladder */
+  --la-heading: #14161d;
+  --la-body: #575e70;
+  --la-muted: #878ea0;
+  --la-faint: #a9b0c1;
+  /* Ink accent (reference black pill) */
+  --la-accent: #101014;
+  --la-accent-hover: #2a2a33;
+  --la-on-accent: #ffffff;
+  --la-accent-soft: #eceef4;
+  --la-accent-text: #14161d;
+  --la-ring: rgb(16 16 20 / 0.16);
+  /* Pastel data accents */
+  --la-blue: #4f74c9;
+  --la-blue-text: #3f63b8;
+  --la-coral: #d96a5b;
+  --la-coral-text: #c05a4b;
+  /* Status tints */
+  --la-good-bg: #e9f4ea;
+  --la-good-text: #3f7a4e;
+  --la-warn-bg: #fdf3dd;
+  --la-warn-text: #a06d12;
+  --la-danger-bg: #fdeae7;
+  --la-danger-text: #b04a3c;
+  /* Inputs */
+  --la-input-bg: #ffffff;
+  --la-input-border: #d9dfeb;
+  --la-placeholder: #a2a9ba;
+  /* Nav + shadows */
+  --la-nav-track: #e7eaf2;
+  --la-nav-active-bg: #101014;
+  --la-nav-active-text: #ffffff;
+  --la-card-shadow: 0 16px 36px -26px rgb(24 34 72 / 0.2);
+  --la-hover-shadow: 0 22px 44px -24px rgb(24 34 72 / 0.3);
+  --la-nav-glow: 0 10px 22px -12px rgb(16 16 20 / 0.5);
+  --la-scroll: rgb(20 22 29 / 0.22);
+  --la-thead-bg: #f5f7fb;
+  background-color: var(--la-bg);
+  background-image: var(--la-bg-image);
+  color: var(--la-body);
+}
+
+html[data-lmsadmin-theme="dark"] .lms-admin-scope {
+  color-scheme: dark;
+  --la-bg: #0d0e12;
+  --la-bg-image: radial-gradient(
+    1100px 500px at 50% -180px,
+    rgb(96 118 190 / 0.13),
+    transparent 62%
+  );
+  --la-header-bg: rgb(13 14 18 / 0.8);
+  --la-panel: #15161c;
+  --la-panel-soft: rgb(255 255 255 / 0.03);
+  --la-tint-blue: rgb(101 132 214 / 0.16);
+  --la-tint-coral: rgb(217 106 91 / 0.15);
+  --la-tint-gold: rgb(255 212 68 / 0.12);
+  --la-chip: rgb(255 255 255 / 0.05);
+  --la-chip-text: #c6c9d5;
+  --la-border: rgb(255 255 255 / 0.08);
+  --la-border-strong: rgb(255 255 255 / 0.16);
+  --la-divider: rgb(255 255 255 / 0.07);
+  --la-heading: #f3f4f8;
+  --la-body: #a6aab9;
+  --la-muted: #8b8fa0;
+  --la-faint: #6b7080;
+  --la-accent: #f2f3f8;
+  --la-accent-hover: #ffffff;
+  --la-on-accent: #101014;
+  --la-accent-soft: rgb(255 255 255 / 0.07);
+  --la-accent-text: #f2f3f8;
+  --la-ring: rgb(242 243 248 / 0.25);
+  --la-blue: #93b1e8;
+  --la-blue-text: #aec6f0;
+  --la-coral: #eb9d90;
+  --la-coral-text: #f2b3a8;
+  --la-good-bg: rgb(16 185 129 / 0.13);
+  --la-good-text: #6ee7b7;
+  --la-warn-bg: rgb(251 191 36 / 0.13);
+  --la-warn-text: #fcd34d;
+  --la-danger-bg: rgb(244 63 94 / 0.13);
+  --la-danger-text: #fda4af;
+  --la-input-bg: rgb(255 255 255 / 0.05);
+  --la-input-border: rgb(255 255 255 / 0.13);
+  --la-placeholder: #6f7382;
+  --la-nav-track: rgb(255 255 255 / 0.05);
+  --la-nav-active-bg: #f2f3f8;
+  --la-nav-active-text: #101014;
+  --la-card-shadow: 0 18px 40px -28px rgb(0 0 0 / 0.9);
+  --la-hover-shadow: 0 20px 42px -24px rgb(0 0 0 / 0.85);
+  --la-nav-glow: 0 0 22px -8px rgb(242 243 248 / 0.35);
+  --la-scroll: rgb(255 255 255 / 0.16);
+  --la-thead-bg: #1d1f27;
+}
+
+.lms-admin-scope .la-panel-shadow { box-shadow: var(--la-card-shadow); }
+.lms-admin-scope .la-hover-lift { transition: transform 0.3s cubic-bezier(0.22, 0.68, 0.3, 1), box-shadow 0.3s cubic-bezier(0.22, 0.68, 0.3, 1); }
+.lms-admin-scope .la-hover-lift:hover { box-shadow: var(--la-hover-shadow); }
+.lms-admin-scope .la-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--la-scroll) transparent;
+}
+.lms-admin-scope .la-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+.lms-admin-scope .la-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--la-scroll);
+  border-radius: 999px;
+}
+
+/* Theme toggle icon swap (CSS-driven, mirrors the portal pattern). */
+.lmsa-theme-dark-only { display: block; }
+.lmsa-theme-light-only { display: none; }
+html[data-lmsadmin-theme="light"] .lmsa-theme-dark-only { display: none; }
+html[data-lmsadmin-theme="light"] .lmsa-theme-light-only { display: block; }
+.lmsa-theme-icon { transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+html[data-lmsadmin-theme="light"] .lmsa-theme-icon { transform: rotate(180deg); }
+
+/* Gold brand link that stays readable in both studio themes. */
+.lmsa-gold-link { color: #a5730f; }
+html[data-lmsadmin-theme="dark"] .lmsa-gold-link { color: #ffd444; }
+
+/* ── Shared-manager remaps ────────────────────────────────────────────
+   The managers ship with light Tailwind utilities. Light scope: nudge
+   stone borders/buttons onto the pastel palette. Dark scope (gated by
+   the html attribute): remap fills, borders and the text ladder —
+   unlayered rules outrank Tailwind utilities, no !important needed. */
+
+/* Light-scope nudges (always on inside the studio) */
+.lms-admin-scope .bg-stone-900 { background-color: #101014; }
+.lms-admin-scope .hover\:bg-stone-700:hover { background-color: #2a2a33; }
+.lms-admin-scope .border-stone-200 { border-color: #e3e7f0; }
+.lms-admin-scope .border-stone-100 { border-color: #eef0f6; }
+/* Sticky table headers: SOLID in both themes (rows must never show through). */
+.lms-admin-scope .bg-stone-50 { background-color: #f5f7fb; }
+
+/* Dark-scope remaps */
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .bg-white { background-color: #15161c; }
+/* SOLID (not alpha) — sticky table headers must never show rows through. */
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .bg-stone-50 { background-color: #1d1f27; }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .bg-stone-100 { background-color: rgb(255 255 255 / 0.08); }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .bg-stone-900 { background-color: #26272f; }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .bg-red-50 { background-color: rgb(244 63 94 / 0.1); }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .bg-emerald-50 { background-color: rgb(16 185 129 / 0.1); }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .hover\:bg-stone-100:hover { background-color: rgb(255 255 255 / 0.1); }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .hover\:bg-stone-700:hover { background-color: #3a3b45; }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .border-stone-100 { border-color: rgb(255 255 255 / 0.06); }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .border-stone-200 { border-color: rgb(255 255 255 / 0.09); }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .border-stone-300 { border-color: rgb(255 255 255 / 0.14); }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .border-red-200 { border-color: rgb(244 63 94 / 0.25); }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .border-emerald-200 { border-color: rgb(16 185 129 / 0.25); }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .focus\:border-stone-500:focus { border-color: #ffd444; }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-stone-400 { color: #8b8fa0; }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-stone-500 { color: #a1a5b3; }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-stone-600 { color: #b5b9c6; }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-stone-700 { color: #d4d6de; }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-stone-800 { color: #e9eaef; }
+/* v2.8.62.1 — the rollover wizard's big year input and stat numbers went
+   invisible in dark mode: bg-white remaps to charcoal but text-stone-900
+   stayed near-black (owner: "Target academic year eka gahana eke numbers
+   penne na. color case ekak nisa"). */
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-stone-900 { color: #f4f5f9; }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-red-600 { color: #fda4af; }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-red-700 { color: #fda4af; }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-emerald-700 { color: #6ee7b7; }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-emerald-800 { color: #6ee7b7; }
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .placeholder\:text-stone-400::placeholder { color: #717582; }
+
+/* ════════════════════════════════════════════════════════════════════
+   LMS PORTALS — themed chrome (login / student / teacher / parent)
+   One token set, two themes. v2.8.38.0 restyles both onto the owner's
+   reference language (soft rounded cards, pastel canvas, circular
+   buttons) while the portals KEEP the school gold as their accent —
+   that is the deliberate difference from the LMS Admin Studio's ink
+   pill. DARK is the default; the pastel cool-gray look is the explicit
+   LIGHT choice. html[data-portal-theme] is set by a boot script in
+   root layout (localStorage "stc-portal-theme", defaulting to dark)
+   BEFORE first paint — no flash, no hydration risk. Components never
+   hard-code hexes; they read --pt-* tokens, so both themes stay
+   first-class and future portals theme for free.
+   ════════════════════════════════════════════════════════════════════ */
+.portal-scope {
+  color-scheme: dark;
+  /* Surfaces */
+  --pt-bg: #0e0f13;
+  --pt-bg-image:
+    radial-gradient(
+      1100px 520px at 50% -160px,
+      rgb(255 212 68 / 0.06),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 480px at 88% 112%,
+      rgb(96 124 196 / 0.09),
+      transparent 62%
+    );
+  --pt-header-bg: rgb(14 15 19 / 0.78);
+  --pt-panel: #15161c;
+  --pt-panel-soft: rgb(255 255 255 / 0.03);
+  --pt-chip: rgb(255 255 255 / 0.05);
+  --pt-chip-text: #c6c9d5;
+  /* Lines */
+  --pt-border: rgb(255 255 255 / 0.08);
+  --pt-border-strong: rgb(255 255 255 / 0.16);
+  --pt-divider: rgb(255 255 255 / 0.07);
+  /* Text ladder */
+  --pt-heading: #f3f4f8;
+  --pt-body: #a6aab9;
+  --pt-muted: #8b8fa0;
+  --pt-faint: #6b7080;
+  /* Gold accent */
+  --pt-accent: #ffd444;
+  --pt-accent-hover: #e8c13a;
+  --pt-on-accent: #0e0f13;
+  --pt-accent-soft: rgb(255 212 68 / 0.1);
+  --pt-accent-text: #ffd444;
+  --pt-ring: rgb(255 212 68 / 0.28);
+  /* Status tints */
+  --pt-good-bg: rgb(16 185 129 / 0.13);
+  --pt-good-text: #6ee7b7;
+  --pt-warn-bg: rgb(251 191 36 / 0.13);
+  --pt-warn-text: #fcd34d;
+  --pt-danger-bg: rgb(244 63 94 / 0.13);
+  --pt-danger-text: #fda4af;
+  --pt-info-bg: rgb(101 132 214 / 0.16);
+  --pt-info-text: #aec6f0;
+  /* Chart */
+  --pt-bar: rgb(255 255 255 / 0.1);
+  --pt-line: #ffd444;
+  /* Inputs */
+  --pt-input-bg: rgb(255 255 255 / 0.05);
+  --pt-input-border: rgb(255 255 255 / 0.13);
+  --pt-placeholder: #6f7382;
+  /* Nav + shadows */
+  --pt-nav-track: rgb(255 255 255 / 0.05);
+  --pt-nav-active-bg: #ffd444;
+  --pt-nav-active-text: #0e0f13;
+  --pt-card-shadow: 0 18px 44px -28px rgb(0 0 0 / 0.9);
+  --pt-hover-shadow:
+    0 14px 34px -20px rgb(0 0 0 / 0.9),
+    0 0 26px -14px rgb(255 212 68 / 0.35);
+  --pt-nav-glow: 0 0 20px -6px rgb(255 212 68 / 0.55);
+  --pt-scroll: rgb(255 255 255 / 0.16);
+  background-color: var(--pt-bg);
+  background-image: var(--pt-bg-image);
+  color: var(--pt-body);
+}
+
+html[data-portal-theme="light"] .portal-scope {
+  color-scheme: light;
+  /* Cool pastel canvas (reference) — portals keep the gold accent. */
+  --pt-bg: #eef0f5;
+  --pt-bg-image: radial-gradient(
+    1100px 460px at 50% -180px,
+    rgb(255 255 255 / 0.95),
+    transparent 62%
+  );
+  --pt-header-bg: rgb(238 240 245 / 0.85);
+  --pt-panel: #ffffff;
+  --pt-panel-soft: #f5f7fb;
+  --pt-chip: #eef1f7;
+  --pt-chip-text: #5d6474;
+  --pt-border: #e3e7f0;
+  --pt-border-strong: #d2d8e6;
+  --pt-divider: #eef0f6;
+  --pt-heading: #14161d;
+  --pt-body: #575e70;
+  --pt-muted: #878ea0;
+  --pt-faint: #a9b0c1;
+  --pt-accent: #f5c536;
+  --pt-accent-hover: #e6b52a;
+  --pt-on-accent: #14161d;
+  --pt-accent-soft: #fdf5df;
+  --pt-accent-text: #a5730f;
+  --pt-ring: rgb(245 197 54 / 0.32);
+  --pt-good-bg: #e9f4ea;
+  --pt-good-text: #3f7a4e;
+  --pt-warn-bg: #fdf3dd;
+  --pt-warn-text: #a06d12;
+  --pt-danger-bg: #fdeae7;
+  --pt-danger-text: #b04a3c;
+  --pt-info-bg: #e8eef9;
+  --pt-info-text: #3f63b8;
+  --pt-bar: #e7ebf3;
+  --pt-line: #14161d;
+  --pt-input-bg: #ffffff;
+  --pt-input-border: #d9dfeb;
+  --pt-placeholder: #a2a9ba;
+  --pt-nav-track: #e7eaf2;
+  --pt-nav-active-bg: #f5c536;
+  --pt-nav-active-text: #14161d;
+  --pt-card-shadow: 0 14px 32px -24px rgb(24 34 72 / 0.22);
+  --pt-hover-shadow: 0 20px 42px -22px rgb(24 34 72 / 0.32);
+  --pt-nav-glow: 0 8px 20px -10px rgb(214 148 22 / 0.55);
+  --pt-scroll: rgb(20 22 29 / 0.22);
+}
+
+/* Helper classes where a raw var() is safer than an arbitrary utility. */
+.portal-scope .pt-panel-shadow { box-shadow: var(--pt-card-shadow); }
+.portal-scope .pt-hover-lift {
+  transition:
+    transform 0.3s cubic-bezier(0.22, 0.68, 0.3, 1),
+    box-shadow 0.3s cubic-bezier(0.22, 0.68, 0.3, 1),
+    border-color 0.3s ease;
+}
+.portal-scope .pt-hover-lift:hover {
+  box-shadow: var(--pt-hover-shadow);
+}
+.portal-scope .pt-nav-active { box-shadow: var(--pt-nav-glow); }
+.portal-scope .pt-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--pt-scroll) transparent;
+}
+.portal-scope .pt-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.portal-scope .pt-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--pt-scroll);
+  border-radius: 999px;
+}
+
+/* Theme toggle icon swap (no React state needed — CSS-driven, no flash). */
+.portal-theme-dark-only { display: block; }
+.portal-theme-light-only { display: none; }
+html[data-portal-theme="light"] .portal-theme-dark-only { display: none; }
+html[data-portal-theme="light"] .portal-theme-light-only { display: block; }
+.pt-theme-icon { transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+html[data-portal-theme="light"] .pt-theme-icon { transform: rotate(180deg); }
+
+/* ── Motion: entrance + chart choreography ─────────────────────────── */
+@keyframes pt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pt-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pt-bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes pt-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes pt-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.portal-scope .pt-rise {
+  animation: pt-rise 0.6s cubic-bezier(0.22, 0.68, 0.3, 1) both;
+}
+.portal-scope .pt-fade { animation: pt-fade 0.7s ease both; }
+/* Stagger helpers — pair with .pt-rise */
+.portal-scope .pt-d1 { animation-delay: 0.07s; }
+.portal-scope .pt-d2 { animation-delay: 0.14s; }
+.portal-scope .pt-d3 { animation-delay: 0.21s; }
+.portal-scope .pt-d4 { animation-delay: 0.28s; }
+.portal-scope .pt-d5 { animation-delay: 0.35s; }
+
+/* Chart: bars grow from the baseline, the line draws over them. */
+.portal-scope .pt-chart-bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: pt-bar-grow 0.7s cubic-bezier(0.22, 0.68, 0.3, 1) both;
+}
+.portal-scope .pt-chart-line {
+  stroke-dasharray: 1;
+  animation: pt-draw 1.1s 0.3s ease-out both;
+}
+/* v2.8.59.0 — the chart redesign: the gradient area under the monotone
+   spline fades in as the line draws itself. */
+.portal-scope .pt-chart-area {
+  opacity: 0;
+  animation: pt-fade 0.9s 0.55s ease-out both;
+}
+.portal-scope .pt-chart-dot { animation: pt-pop 0.45s 1.15s ease both; }
+.portal-scope .pt-chart-chip {
+  animation: pt-pop 0.5s 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* v2.8.58.0 — Phase 5.1/5.2: progress rings sweep in, the celebration
+   banner's sparkle dots twinkle (deterministic positions, pure CSS). */
+.portal-scope .pt-ring-arc {
+  animation: pt-ring-sweep 0.9s 0.15s cubic-bezier(0.22, 0.68, 0.3, 1) both;
+}
+@keyframes pt-ring-sweep {
+  from { stroke-dashoffset: var(--ring-circ, 300); }
+}
+.portal-scope .pt-spark {
+  opacity: 0;
+  animation: pt-spark-twinkle 2.4s ease-in-out infinite;
+}
+.portal-scope .pt-spark.s1 { top: 8px; right: 14%; animation-delay: 0.3s; }
+.portal-scope .pt-spark.s2 { top: 30px; right: 7%; animation-delay: 1.1s; }
+.portal-scope .pt-spark.s3 { bottom: 8px; right: 22%; animation-delay: 1.8s; }
+@keyframes pt-spark-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.6); }
+  50% { opacity: 0.9; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-scope *,
+  .portal-scope *::before,
+  .portal-scope *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* cache-buster: portal+admin theme block v3 (v2.8.38.0 pastel redesign) */
+
+/* ════════════════════════════════════════════════════════════════════
+   MAINTENANCE SCREEN MOTION (v2.8.39.0) — floating motes, rising card,
+   shimmering gold progress bar. Pure CSS; all of it switches off under
+   prefers-reduced-motion (the Lottie player also refuses to autoplay).
+   ════════════════════════════════════════════════════════════════════ */
+@keyframes mt-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-18px);
+  }
+}
+@keyframes mt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes mt-shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(360%);
+  }
+}
+.mt-float {
+  animation: mt-float 7.5s ease-in-out infinite;
+}
+.mt-rise {
+  animation: mt-rise 0.7s cubic-bezier(0.22, 0.68, 0.3, 1) both;
+}
+.mt-d1 {
+  animation-delay: 0.12s;
+}
+.mt-shimmer-bar {
+  animation: mt-shimmer 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mt-float,
+  .mt-rise,
+  .mt-shimmer-bar {
+    animation: none !important;
+  }
+}
+
+/* ── LMS ADMIN STUDIO motion (v2.8.39.0) — entrance rise + chart bar grow.
+   Pure CSS, mirrors the portal pt-* set; off under prefers-reduced-motion. */
+@keyframes la-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes la-bar-grow {
+  from {
+    transform: scaleY(0.04);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+.lms-admin-scope .la-rise {
+  animation: la-rise 0.65s cubic-bezier(0.22, 0.68, 0.3, 1) both;
+}
+.lms-admin-scope .la-d1 {
+  animation-delay: 0.05s;
+}
+.lms-admin-scope .la-d2 {
+  animation-delay: 0.12s;
+}
+.lms-admin-scope .la-d3 {
+  animation-delay: 0.2s;
+}
+.lms-admin-scope .la-d4 {
+  animation-delay: 0.28s;
+}
+.lms-admin-scope .la-bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: la-bar-grow 0.7s cubic-bezier(0.22, 0.68, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lms-admin-scope .la-rise,
+  .lms-admin-scope .la-bar {
+    animation: none !important;
+  }
+}
+
+/* ── MAINTENANCE PAGE (v2.8.39.2) — Apple-style "We'll be back" screen.
+   Scoped to .maintenance-scope only; the theme follows the VISITOR'S OS
+   preference (prefers-color-scheme) — visitors can't toggle it, so the
+   site-wide .dark class never touches this screen. White circles stay
+   white in both themes; canvas and ink flip. Reduced-motion safe. ── */
+.maintenance-scope {
+  --mtc-canvas: #fafafa;
+  --mtc-ink: #1d1d1f;
+  --mtc-muted: rgb(29 29 31 / 0.58);
+  --mtc-faint: rgb(29 29 31 / 0.34);
+  --mtc-disc-bg: #ffffff;
+  --mtc-disc-ring: rgb(0 0 0 / 0.06);
+  --mtc-disc-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 12px 32px -14px rgb(0 0 0 / 0.22);
+  /* Glyphs inside the white discs stay DARK in both themes (Apple style). */
+  --mtc-glyph: #1d1d1f;
+  --mtc-track: rgb(0 0 0 / 0.08);
+  --mtc-bar: rgb(29 29 31 / 0.55);
+  background-color: var(--mtc-canvas);
+  color: var(--mtc-ink);
+}
+@media (prefers-color-scheme: dark) {
+  .maintenance-scope {
+    --mtc-canvas: #0a0a0a;
+    --mtc-ink: #f5f5f7;
+    --mtc-muted: rgb(245 245 247 / 0.62);
+    --mtc-faint: rgb(245 245 247 / 0.38);
+    --mtc-disc-bg: #ffffff;
+    --mtc-disc-ring: rgb(255 255 255 / 0.14);
+    --mtc-disc-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 14px 36px -14px rgb(0 0 0 / 0.8);
+    --mtc-glyph: #1d1d1f;
+    --mtc-track: rgb(255 255 255 / 0.16);
+    --mtc-bar: rgb(245 245 247 / 0.8);
+  }
+}
+.maintenance-scope .mtc-muted {
+  color: var(--mtc-muted);
+}
+.maintenance-scope .mtc-faint {
+  color: var(--mtc-faint);
+}
+.mtc-disc {
+  width: 96px;
+  height: 96px;
+  border-radius: 9999px;
+  background: var(--mtc-disc-bg);
+  /* v2.8.40.1 — glyphs are HARD-CODED near-black: white discs keep dark ink
+     in BOTH themes, with no dependence on variable resolution. */
+  color: #1d1d1f;
+  box-shadow:
+    0 0 0 1px var(--mtc-disc-ring),
+    var(--mtc-disc-shadow);
+  display: grid;
+  place-items: center;
+}
+.mtc-crest {
+  width: 56%;
+  height: 56%;
+  object-fit: contain;
+}
+.mtc-social {
+  width: 42px;
+  height: 42px;
+  border-radius: 9999px;
+  background: var(--mtc-disc-bg);
+  /* v2.8.40.1 — hard-coded dark ink (owner: icons must show black inside
+     the white circles); the var stays only as documentation. */
+  color: #1d1d1f;
+  box-shadow:
+    0 0 0 1px var(--mtc-disc-ring),
+    var(--mtc-disc-shadow);
+  display: grid;
+  place-items: center;
+  transition: transform 0.25s ease;
+}
+.mtc-social:hover {
+  transform: translateY(-2px);
+}
+.mtc-social:focus-visible {
+  outline: 2px solid var(--mtc-bar);
+  outline-offset: 3px;
+}
+.mtc-bar {
+  width: 11rem;
+  height: 2px;
+  border-radius: 9999px;
+  background: var(--mtc-track);
+  overflow: hidden;
+  position: relative;
+}
+.mtc-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 34%;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--mtc-bar);
+  animation: mtc-shimmer 2.4s cubic-bezier(0.45, 0, 0.35, 1) infinite;
+}
+@keyframes mtc-shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+@keyframes mtc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.maintenance-scope .mtc-rise {
+  animation: mtc-rise 0.7s cubic-bezier(0.22, 0.68, 0.3, 1) both;
+}
+.maintenance-scope .mtc-d1 {
+  animation-delay: 0.08s;
+}
+.maintenance-scope .mtc-d2 {
+  animation-delay: 0.16s;
+}
+.maintenance-scope .mtc-d3 {
+  animation-delay: 0.26s;
+}
+.maintenance-scope .mtc-d4 {
+  animation-delay: 0.36s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .maintenance-scope .mtc-rise {
+    animation: none !important;
+  }
+  .mtc-social {
+    transition: none !important;
+  }
+  .mtc-social:hover {
+    transform: none;
+  }
+  .mtc-bar-fill {
+    animation: none !important;
+    left: 33%;
+  }
+}
