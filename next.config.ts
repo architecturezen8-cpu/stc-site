@@ -6,7 +6,10 @@ const nextConfig: NextConfig = {
   // second instance against the same data directory and abort.
   // "pg" (node-postgres, Supabase Phase 2.2 driver) stays external for the
   // same reason — it must run in the Node server runtime, not the bundle.
-  serverExternalPackages: ["@electric-sql/pglite", "pg"],
+  // "sharp" (v2.8.66.2) — Next 16 dropped sharp from its default externals,
+  // so Turbopack bundled the native binary into route chunks and every
+  // sharp-importing route 500'd at module init on Vercel. External it is.
+  serverExternalPackages: ["@electric-sql/pglite", "pg", "sharp"],
   // The preview panel proxies the dev server through a *.space-z.ai host —
   // without this Next blocks dev-only assets (fonts, HMR) cross-origin.
   allowedDevOrigins: ["*.space-z.ai"],

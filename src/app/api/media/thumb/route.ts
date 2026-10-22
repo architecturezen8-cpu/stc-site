@@ -1,26 +1,47 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { NextResponse } from "next/server";
-import sharp from "sharp";
 
 /**
  * Disk-cached thumbnail endpoint for legacy static images (v2.8.24).
  *
  * Admin grids used to load the full `/images/*.jpg` masters (~150–200 KB
- * each) for small cards. This route renders a 480px WebP once, caches it
- * under `.data/thumbs/`, and serves it with immutable caching afterwards.
+ * each) for small cards. This route renders a 480px WebP once, caches it,
+ * and serves it with immutable caching afterwards.
  * No database involvement — safe for the embedded PGlite instance.
  *
  * GET /api/media/thumb?src=/images/hero.jpg
+ *
+ * v2.8.66.2 — Vercel hardening:
+ *  - the cache lives under os.tmpdir() — serverless filesystems are
+ *    read-only outside /tmp, so the old process.cwd()/.data path EROFS'd;
+ *  - sharp is imported LAZILY and any failure (native binary missing in a
+ *    cold bundle, unsupported format, read-only disk…) degrades to a 302
+ *    redirect to the original file — this route can no longer 500;
+ *  - every redirect still sends no-store so the browser retries later.
  */
 
 const THUMB_WIDTH = 480;
 const THUMB_QUALITY = 72;
 
-const CACHE_DIR = path.join(process.cwd(), ".data", "thumbs");
+const CACHE_DIR = path.join(os.tmpdir(), "stc-thumbs");
 const PUBLIC_DIR = path.join(process.cwd(), "public");
+
+type SharpModule = typeof import("sharp");
+let sharpPromise: Promise<SharpModule> | null = null;
+
+async function loadSharp(): Promise<SharpModule | null> {
+  try {
+    sharpPromise ??= import("sharp");
+    return await sharpPromise;
+  } catch (error) {
+    console.error("[media/thumb] sharp failed to load — serving originals:", error);
+    return null;
+  }
+}
 
 function resolveSource(raw: string | null): string | null {
   if (!raw) return null;
@@ -37,6 +58,13 @@ function resolveSource(raw: string | null): string | null {
   return source;
 }
 
+function redirectToOriginal(source: string) {
+  return new NextResponse(null, {
+    status: 302,
+    headers: { location: source, "cache-control": "no-store" },
+  });
+}
+
 export async function GET(req: Request) {
   const source = resolveSource(new URL(req.url).searchParams.get("src"));
   if (!source) {
@@ -45,11 +73,15 @@ export async function GET(req: Request) {
 
   const absolute = path.join(PUBLIC_DIR, source);
   if (!existsSync(absolute)) {
-    return new NextResponse(null, {
-      status: 302,
-      headers: { location: source, "cache-control": "no-store" },
-    });
+    return redirectToOriginal(source);
   }
+
+  // sharp is optional at runtime — without it we still serve the image.
+  const sharpModule = await loadSharp();
+  if (!sharpModule) {
+    return redirectToOriginal(source);
+  }
+  const sharp = sharpModule.default;
 
   const key = createHash("sha1").update(source).digest("hex").slice(0, 24);
   const cached = path.join(CACHE_DIR, `${key}.webp`);
@@ -79,11 +111,9 @@ export async function GET(req: Request) {
         "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
-  } catch {
+  } catch (error) {
     // Graceful fallback — let the browser load the original file instead.
-    return new NextResponse(null, {
-      status: 302,
-      headers: { location: source, "cache-control": "no-store" },
-    });
+    console.error(`[media/thumb] render failed for ${source} — redirecting:`, error);
+    return redirectToOriginal(source);
   }
 }

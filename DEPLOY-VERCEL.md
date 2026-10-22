@@ -127,6 +127,33 @@ R2_SECRET_ACCESS_KEY=<applicationKey>
 bucket URLs are used then. `R2_PUBLIC_BASE_URL` from older docs is no longer
 read: the database now stores stable app paths, never provider URLs.)
 
+**One-time B2 CORS rule (v2.8.66.2 — REQUIRED for image uploads).** Admin
+Studio uploads go browser → B2 directly with a presigned PUT, so the bucket
+must tell browsers to allow it — otherwise the console shows
+`blocked by CORS policy: No 'Access-Control-Allow-Origin'`. The scoped app
+key cannot change bucket settings, so do it once in the web console:
+
+1. Backblaze → **Buckets** → your bucket → **Bucket Settings** → **CORS Rules**.
+2. Paste this JSON (one rule, Save):
+
+```json
+[
+  {
+    "corsRuleName": "stcSiteDirectUploads",
+    "allowedOrigins": ["*"],
+    "allowedHeaders": ["*"],
+    "allowedOperations": ["s3_put", "s3_get", "s3_head", "s3_delete"],
+    "exposeHeaders": ["etag", "x-amz-request-id", "x-amz-id-2"],
+    "maxAgeSeconds": 3600
+  }
+]
+```
+
+`allowedOrigins: ["*"]` is safe here: the bucket is PRIVATE, so every GET
+still needs a signed URL — the rule only lets browsers complete the signed
+PUT/GET they were handed. It covers the Vercel domain, a future custom
+domain and localhost dev, so new origins never need a re-edit.
+
 **One-time backfill of the images already in the database** (run from the
 project root on a machine that has the repo + `.env` — the sandbox works):
 

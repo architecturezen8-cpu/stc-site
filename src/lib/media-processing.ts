@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import path from "node:path";
-import sharp, { type Metadata } from "sharp";
+import type { Metadata } from "sharp";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -11,6 +11,22 @@ import {
   mediaVariants,
 } from "@/db/schema";
 import { getStorage } from "@/lib/storage";
+
+/**
+ * v2.8.66.2 — sharp loads LAZILY: a top-level import of a native module
+ * crashes the whole route at module-init when the binary is missing/broken
+ * (the Vercel thumb-500 lesson). Every caller awaits getSharp() instead.
+ */
+type SharpFactory = typeof import("sharp").default;
+let sharpPromise: Promise<SharpFactory> | null = null;
+async function getSharp(): Promise<SharpFactory> {
+  try {
+    sharpPromise ??= import("sharp").then((m) => m.default);
+    return await sharpPromise;
+  } catch (error) {
+    throw new Error("Image processing is unavailable on this server.", { cause: error });
+  }
+}
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 const MAX_PIXELS = 60_000_000;
@@ -79,6 +95,8 @@ export async function processAndStoreImage(input: ProcessMediaInput) {
       .where(eq(mediaVariants.assetId, duplicate.id));
     return { asset: duplicate, variants, duplicate: true };
   }
+
+  const sharp = await getSharp();
 
   let metadata: Metadata;
   try {
