@@ -40,6 +40,16 @@ export async function POST(req: Request) {
     if (!("createSignedUpload" in storage) || !storage.createSignedUpload) {
       throw new Error("The configured provider does not support signed uploads.");
     }
+
+    // v2.8.66.7 — probe the bucket's CORS preflight (cached 10 min/origin).
+    // When the bucket has no rule answering the browser (B2's default), answer
+    // mode:"proxy" so the client uploads through this server instead of
+    // firing a guaranteed-failing presigned PUT — no console CORS noise, and
+    // big-file direct uploads resume automatically once the rule is added.
+    const origin = req.headers.get("origin")?.trim() || "*";
+    if ("probeDirectUpload" in storage && !(await storage.probeDirectUpload(origin))) {
+      return NextResponse.json({ mode: "proxy", driver });
+    }
     const extension = filename.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
     const key = `temporary/${admin.id}/${randomUUID()}.${extension}`;
     const signed = await storage.createSignedUpload(key, contentType, 600);

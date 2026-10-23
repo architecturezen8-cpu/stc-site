@@ -38,6 +38,15 @@ type S3ProviderConfig = {
 const MIN_SIGNED_TTL_SECONDS = 60;
 const MAX_SIGNED_TTL_SECONDS = 604_800;
 
+/**
+ * In-memory CORS preflight verdicts, keyed `${bucket}|${origin}`.
+ * v2.8.66.7 — presign probes the provider bucket once per origin and serves
+ * the verdict for 10 minutes, so a missing bucket CORS rule costs ONE probe
+ * per deployment instead of one failed browser PUT per upload.
+ */
+const PREFLIGHT_PROBE_TTL_MS = 10 * 60 * 1000;
+const preflightProbeCache = new Map<string, { ok: boolean; expires: number }>();
+
 function readRequiredEnv(name: string, provider: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
@@ -149,6 +158,44 @@ export class S3MediaStorage implements MediaStorage {
         Key: assertSafeObjectKey(key),
       }),
     );
+  }
+
+  /**
+   * v2.8.66.7 — can THIS browser origin upload directly (presigned PUT)?
+   *
+   * Direct browser uploads need a bucket CORS rule answering the preflight;
+   * B2 buckets ship with none, so the browser PUT used to die with a noisy
+   * CORS error before the client-side fallback engaged. Presign now asks this
+   * method first (one cached OPTIONS probe per bucket+origin) and routes the
+   * upload through the server proxy when the rule is missing — silent for the
+   * user, and self-healing: once the CORS rule is added the probe passes and
+   * direct uploads (incl. >4.5 MB files) resume automatically.
+   */
+  async probeDirectUpload(origin: string): Promise<boolean> {
+    const cacheKey = `${this.bucket}|${origin}`;
+    const hit = preflightProbeCache.get(cacheKey);
+    if (hit && hit.expires > Date.now()) return hit.ok;
+
+    let ok = false;
+    try {
+      const response = await fetch(`${this.endpoint}/${this.bucket}/cors-probe`, {
+        method: "OPTIONS",
+        headers: {
+          Origin: origin,
+          "Access-Control-Request-Method": "PUT",
+          // The client sets Content-Type; AWS SDK v3 may add checksum headers
+          // to the signed request, so mirror the rule a fixed bucket would use.
+          "Access-Control-Request-Headers": "content-type,x-amz-checksum-crc32,x-amz-sdk-checksum-algorithm",
+        },
+        signal: AbortSignal.timeout(5_000),
+      });
+      ok = response.headers.has("access-control-allow-origin");
+    } catch {
+      // Provider unreachable or probe blocked — prefer the always-works proxy.
+      ok = false;
+    }
+    preflightProbeCache.set(cacheKey, { ok, expires: Date.now() + PREFLIGHT_PROBE_TTL_MS });
+    return ok;
   }
 
   async createSignedUpload(
