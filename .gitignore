@@ -30,3 +30,6 @@ yarn-error.log*
 *.tsbuildinfo
 .data/
 tool-results/
+
+# Local PGlite database internals (never ship — contains live password hashes)
+db/custom.db/

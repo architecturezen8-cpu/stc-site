@@ -98,19 +98,25 @@ export function useSiteCrest(): SiteCrest {
       : { url: "", status: "unknown", failed: false },
   );
 
-  useEffect(() => {
-    /* The server value always wins when it exists (freshest, stamped). */
+  /* The server value always wins when it exists (freshest, stamped). Mirrored
+     into state during render — the React-recommended adjustment pattern (an
+     effect would cascade renders and react-hooks/set-state-in-effect flags
+     that). */
+  const [prevServerLogo, setPrevServerLogo] = useState(serverLogo);
+  if (serverLogo !== prevServerLogo) {
+    setPrevServerLogo(serverLogo);
     if (serverLogo) {
       writeCrestCache(serverLogo);
       setState({ url: serverLogo, status: "ready", failed: false });
-      return;
     }
-    /* Server hiccup — remember the last good crest from THIS browser. */
-    const cached = readCrestCache();
-    if (cached) {
-      setState({ url: cached, status: "ready", failed: false });
-    }
+  }
+
+  useEffect(() => {
+    if (serverLogo) return;
     let cancelled = false;
+    /* Server hiccup path — every setState below is async (post-fetch), so
+       no cascading renders; until it resolves the crest stays a neutral
+       "unknown" circle, never a fake "S". */
     fetch("/api/site-settings")
       .then((res) => res.json())
       .then((data: { schoolLogo?: string }) => {
@@ -119,15 +125,24 @@ export function useSiteCrest(): SiteCrest {
         if (url) {
           writeCrestCache(url);
           setState({ url, status: "ready", failed: false });
-        } else if (!cached) {
-          /* Confirmed: the registry really has no crest. */
+          return;
+        }
+        /* Registry confirmed empty — fall back to THIS browser's memory. */
+        const cached = readCrestCache();
+        if (cached) {
+          setState({ url: cached, status: "ready", failed: false });
+        } else {
           setState((prev) =>
             prev.url ? prev : { url: "", status: "ready", failed: prev.failed },
           );
         }
       })
       .catch(() => {
-        if (!cancelled && !cached) {
+        if (cancelled) return;
+        const cached = readCrestCache();
+        if (cached) {
+          setState({ url: cached, status: "ready", failed: false });
+        } else {
           /* Network died mid-check — stay neutral, never fake the "S". */
           setState((prev) =>
             prev.url ? prev : { url: "", status: "unknown", failed: prev.failed },

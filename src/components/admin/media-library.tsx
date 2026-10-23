@@ -135,6 +135,12 @@ async function parseJsonOrUploadError(response: Response, fallbackMessage: strin
   return parsed;
 }
 
+/**
+ * Vercel serverless request bodies cap at ~4.5 MB — keep headroom for the
+ * multipart envelope and only use the proxy-upload fallback below this size.
+ */
+const PROXY_MAX_BYTES = 4 * 1024 * 1024;
+
 function uploadDirect(
   url: string,
   file: File,
@@ -934,22 +940,52 @@ function UploadModal({
       if (prepare.mode === "direct") {
         if (!prepare.url) throw new Error("Upload preparation failed (missing signed URL).");
         setStatus(`Uploading directly to ${String(prepare.driver).toUpperCase()}…`);
-        await uploadDirect(prepare.url, file, prepare.headers ?? {}, setProgress);
-        setProgress(78);
-        setStatus("Optimising image and creating WebP variants…");
-        result = await fetch("/api/admin/media/finalize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            key: prepare.key,
-            filename: file.name,
-            title,
-            altText,
-            caption,
-            folder,
-            category,
-          }),
-        });
+        // v2.8.67.0 — fall back to the multipart proxy upload when the
+        // provider refuses the browser-direct PUT (in practice: the bucket's
+        // CORS rules are missing). No CORS involved; capped at 4 MB because
+        // Vercel caps serverless request bodies at ~4.5 MB.
+        let directOk = true;
+        try {
+          await uploadDirect(prepare.url, file, prepare.headers ?? {}, setProgress);
+        } catch {
+          directOk = false;
+          if (file.size > PROXY_MAX_BYTES) {
+            throw new Error(
+              "The image host refused the direct upload (bucket CORS rules are missing) and this file is too large for the automatic fallback. Fix the bucket CORS rules, then try again.",
+            );
+          }
+          setStatus("Direct upload was blocked — uploading through the server…");
+        }
+        if (directOk) {
+          setProgress(78);
+          setStatus("Optimising image and creating WebP variants…");
+          result = await fetch("/api/admin/media/finalize", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              key: prepare.key,
+              filename: file.name,
+              title,
+              altText,
+              caption,
+              folder,
+              category,
+            }),
+          });
+        } else {
+          setProgress(30);
+          const form = new FormData();
+          form.set("file", file);
+          form.set("title", title);
+          form.set("altText", altText);
+          form.set("caption", caption);
+          form.set("folder", folder);
+          form.set("category", category);
+          result = await fetch("/api/admin/media/upload", {
+            method: "POST",
+            body: form,
+          });
+        }
       } else {
         setProgress(25);
         setStatus("Optimising image and creating WebP variants…");

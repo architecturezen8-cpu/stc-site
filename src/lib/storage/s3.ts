@@ -182,11 +182,15 @@ export class S3MediaStorage implements MediaStorage {
 
   getPublicUrl(key: string): string {
     const safeKey = assertSafeObjectKey(key);
-    const encoded = safeKey.split("/").map(encodeURIComponent).join("/");
     if (this.publicBaseUrl) {
+      const encoded = safeKey.split("/").map(encodeURIComponent).join("/");
       return `${this.publicBaseUrl}/${encoded}`;
     }
-    return `${this.endpoint}/${this.bucket}/${encoded}`;
+    // No public base URL configured ⇒ the bucket is private (stc-media on B2
+    // is allPrivate). A raw endpoint/bucket/key URL can never serve without
+    // credentials, so store the proxy path instead — /api/media/file streams
+    // the object (and falls back to legacy media_blobs) server-side.
+    return `/api/media/file?key=${encodeURIComponent(safeKey)}`;
   }
 }
 

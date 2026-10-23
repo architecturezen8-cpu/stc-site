@@ -50,6 +50,12 @@ async function parseJsonOrUploadError(response: Response, fallbackMessage: strin
   return parsed;
 }
 
+/**
+ * Vercel serverless request bodies cap at ~4.5 MB — keep headroom for the
+ * multipart envelope and only use the proxy-upload fallback below this size.
+ */
+const PROXY_MAX_BYTES = 4 * 1024 * 1024;
+
 type LibraryAsset = {
   id: number | string;
   title: string;
@@ -249,22 +255,51 @@ export function MediaPickerModal({
       if (prepare.mode === "direct") {
         if (!prepare.url) throw new Error("Upload preparation failed (missing signed URL).");
         setUploadStatus(`Uploading directly to ${String(prepare.driver).toUpperCase()}…`);
-        await uploadDirect(prepare.url, file, prepare.headers, setProgress);
-        setProgress(78);
-        setUploadStatus("Optimising image and creating WebP variants…");
-        result = await fetch("/api/admin/media/finalize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            key: prepare.key,
-            filename: file.name,
-            title: baseTitle,
-            altText: baseTitle,
-            caption: "",
-            folder: targetFolder,
-            category: "Uncategorised",
-          }),
-        });
+        // v2.8.67.0 — if the provider refuses the browser-direct PUT (in
+        // practice: the bucket's CORS rules are missing, exactly what B2's
+        // "This CORS request is not allowed" means), fall back to the
+        // multipart proxy upload which flows through this server and needs
+        // no CORS at all. Vercel caps serverless bodies at ~4.5 MB, so the
+        // fallback only runs for files up to 4 MB.
+        let directOk = true;
+        try {
+          await uploadDirect(prepare.url, file, prepare.headers, setProgress);
+        } catch {
+          directOk = false;
+          if (file.size > PROXY_MAX_BYTES) {
+            throw new Error(
+              "The image host refused the direct upload (bucket CORS rules are missing) and this file is too large for the automatic fallback. Fix the bucket CORS rules, then try again.",
+            );
+          }
+          setUploadStatus("Direct upload was blocked — uploading through the server…");
+        }
+        if (directOk) {
+          setProgress(78);
+          setUploadStatus("Optimising image and creating WebP variants…");
+          result = await fetch("/api/admin/media/finalize", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              key: prepare.key,
+              filename: file.name,
+              title: baseTitle,
+              altText: baseTitle,
+              caption: "",
+              folder: targetFolder,
+              category: "Uncategorised",
+            }),
+          });
+        } else {
+          setProgress(30);
+          const form = new FormData();
+          form.set("file", file);
+          form.set("title", baseTitle);
+          form.set("altText", baseTitle);
+          form.set("caption", "");
+          form.set("folder", targetFolder);
+          form.set("category", "Uncategorised");
+          result = await fetch("/api/admin/media/upload", { method: "POST", body: form });
+        }
       } else {
         setProgress(25);
         setUploadStatus("Optimising image and creating WebP variants…");
