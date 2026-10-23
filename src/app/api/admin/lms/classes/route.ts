@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { adminAuditLogs } from "@/db/schema";
 import {
@@ -39,13 +39,24 @@ export async function POST(req: Request) {
   }
 
   const name = `${grade}-${section}`;
+  /* Year-aware duplicate check (academic-year rollover): the same class name
+     may exist once per academic year — "6-A" for 2026 and "6-A" for 2027 are
+     different classes. Only a same-name + same-year clash is a 409. */
   const [dup] = await db
     .select({ id: lmsClasses.id })
     .from(lmsClasses)
-    .where(sql`lower(${lmsClasses.name}) = ${name.toLowerCase()}`)
+    .where(
+      and(
+        sql`lower(${lmsClasses.name}) = ${name.toLowerCase()}`,
+        eq(lmsClasses.academicYear, academicYear),
+      ),
+    )
     .limit(1);
   if (dup) {
-    return NextResponse.json({ error: `Class ${name} already exists.` }, { status: 409 });
+    return NextResponse.json(
+      { error: `Class ${name} already exists for ${academicYear}.` },
+      { status: 409 },
+    );
   }
 
   const [created] = await db

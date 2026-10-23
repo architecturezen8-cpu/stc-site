@@ -39,6 +39,7 @@ export default async function StudentChatPage() {
         { label: "Homework", href: "/student/homework" },
         { label: "Chat", href: "/student/chat", active: true, badge },
         { label: "Marks", href: "/student#marks" },
+        { label: "Report card", href: "/student/report-card" },
         { label: "Notices", href: "/student#notices" },
         { label: "Profile", href: "/student/profile" },
       ]}

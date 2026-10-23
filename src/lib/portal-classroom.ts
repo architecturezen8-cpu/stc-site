@@ -124,7 +124,11 @@ export async function getTeacherNoticeClassOptions(
     .groupBy(lmsEnrollments.classId);
   const byClass = new Map(counts.map((c) => [c.classId, c.count]));
 
+  /* Year-end staleness guard: classes with no ACTIVE enrollment left (the
+     rollover moved everyone on) are dropped — posting a notice to an empty
+     old-year class reaches nobody. */
   return [...byId.entries()]
+    .filter(([classId]) => (byClass.get(classId) ?? 0) > 0)
     .map(([classId, className]) => ({
       classId,
       className,

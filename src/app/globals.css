@@ -1304,6 +1304,11 @@ html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-stone-500 { color: #a1a5
 html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-stone-600 { color: #b5b9c6; }
 html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-stone-700 { color: #d4d6de; }
 html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-stone-800 { color: #e9eaef; }
+/* v2.8.62.1 — the rollover wizard's big year input and stat numbers went
+   invisible in dark mode: bg-white remaps to charcoal but text-stone-900
+   stayed near-black (owner: "Target academic year eka gahana eke numbers
+   penne na. color case ekak nisa"). */
+html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-stone-900 { color: #f4f5f9; }
 html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-red-600 { color: #fda4af; }
 html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-red-700 { color: #fda4af; }
 html[data-lmsadmin-theme="dark"] .lms-admin-scope .text-emerald-700 { color: #6ee7b7; }

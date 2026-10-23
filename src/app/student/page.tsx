@@ -140,6 +140,7 @@ export default async function StudentDashboardPage() {
           slots={data.slots}
           ctaLabel="Full week →"
           ctaHref="/student/timetable"
+          chipHref="#timetable"
         />
 
         {/* Reference-style stat cards — Phase 5.1: the three rates read as
@@ -171,6 +172,8 @@ export default async function StudentDashboardPage() {
               value: String(data.subjectCount),
               label: "Subjects",
               icon: <BookOpen size={17} aria-hidden="true" />,
+              /* v2.8.61.0 — the static card became a door into the wall. */
+              href: "#subjects",
             },
           ]}
         />
@@ -206,7 +209,6 @@ export default async function StudentDashboardPage() {
               <Panel
                 title="Today's Timetable"
                 subtitle={`${data.dayLabel} · ${data.dateLabel}`}
-                action="search-filter"
               >
                 {data.slots.length === 0 ? (
                   <EmptyNote>
@@ -490,7 +492,7 @@ export default async function StudentDashboardPage() {
               </Panel>
             </div>
 
-            <div className="pt-rise pt-d4">
+            <div id="subjects" className="pt-rise pt-d4 scroll-mt-24">
               <Panel title="My Subjects" subtitle={`${data.subjectCount} this year`}>
                 {data.subjectCount === 0 ? (
                   <EmptyNote>
@@ -500,8 +502,9 @@ export default async function StudentDashboardPage() {
                 ) : (
                   <>
                     {/* v2.8.58.0 — Phase 5.1: subject cards with their own
-                        glyph instead of a bare count footer. */}
-                    <SubjectCards subjects={data.subjects} />
+                        glyph instead of a bare count footer.
+                        v2.8.61.0 — each tile OPENS that subject's homework. */}
+                    <SubjectCards subjects={data.subjects} hrefBase="/student/homework" />
                     <div className="mt-4">
                       <PanelFooter
                         left={

@@ -62,6 +62,11 @@ export async function POST(req: Request) {
   if (!isPortalRole(role)) {
     return NextResponse.json({ ok: false, status: "bad_request" }, { status: 200 });
   }
+  /* v2.8.63.0 — the Principal portal is INVITE-ONLY: the office creates it
+     in Admin Studio → Portal Accounts. No public registration path. */
+  if (role === "principal") {
+    return NextResponse.json({ ok: false, status: "bad_request" }, { status: 200 });
+  }
 
   const password = body.password || "";
   const confirmPassword = body.confirmPassword || "";
@@ -100,7 +105,13 @@ export async function POST(req: Request) {
       const motherName = (body.motherName || "").trim();
       const email = (body.email || "").trim().toLowerCase();
 
-      if (missing([admissionNo, fullName, className, registerNo, fatherName, motherName])) {
+      /* v2.8.62.0 — the owner: "verification records daddi godak welawata
+         thawa details danna wenawa ne" — registration now needs ONLY the
+         essentials (admission no, name, class). Register no and parents'
+         names are optional: they are still VERIFIED when typed, and the
+         register matcher already skips the details the office has not
+         recorded, so blank fields can never fail a family. */
+      if (missing([admissionNo, fullName, className])) {
         return NextResponse.json({ ok: false, status: "bad_request" }, { status: 200 });
       }
       if (email && !EMAIL_RE.test(email)) {

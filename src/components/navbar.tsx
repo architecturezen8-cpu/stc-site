@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, ChevronDown, Menu, Moon, Sun, X } from "lucide-react";
+import { SiteCrestImg, useSiteBrand } from "@/components/site-brand";
 
 type NavLink = {
   label: string;
@@ -128,25 +129,30 @@ export function Navbar() {
     news: false,
     staff: false,
   });
+  /* v2.8.61.0 — the crest is SERVER-DELIVERED through the root layout's
+     SiteBrandProvider — no golden-disc flash on reload.
+     v2.8.62.0 — the SAME owner complaint returned: the flash survived in one
+     corner (a hiccuped server-side crest read on the first request after a
+     restart painted the golden "S"). The chrome now renders through
+     SiteCrestImg: the browser remembers the last good crest, and the golden
+     "S" disc only ever appears once the system CONFIRMS no crest exists. */
+  const { schoolLogo: serverLogo } = useSiteBrand();
   const [brand, setBrand] = useState({
     brandName: "St. Thomas' College",
     brandSubline: "Matale · Est. 1873",
-    schoolLogo: "",
+    schoolLogo: serverLogo,
   });
-  /* v2.8.60.0 — a logo URL that fails (deleted blob, dead link) must fall
-     back to the golden disc, never show a broken image. */
-  const [logoFailed, setLogoFailed] = useState(false);
-  const navLogo = brand.schoolLogo && !logoFailed ? brand.schoolLogo : "";
 
   useEffect(() => {
     fetch("/api/site-settings")
       .then((res) => res.json())
       .then((data) =>
-        setBrand({
+        setBrand((prev) => ({
           brandName: data.brandName || "St. Thomas' College",
           brandSubline: data.brandSubline || "Matale · Est. 1873",
-          schoolLogo: data.schoolLogo || "",
-        }),
+          /* never clobber a good server value with an empty refresh */
+          schoolLogo: data.schoolLogo || prev.schoolLogo,
+        })),
       )
       .catch(() => undefined);
   }, []);
@@ -202,19 +208,11 @@ export function Navbar() {
         <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 md:px-8">
           {/* Brand */}
           <Link href="/#home" className="group flex items-center gap-3">
-            {navLogo ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={navLogo}
-                alt={`${brand.brandName} logo`}
-                onError={() => setLogoFailed(true)}
-                className="h-10 w-10 rounded-full border border-white/20 bg-white object-contain p-0.5 transition-transform duration-700 group-hover:rotate-[360deg]"
-              />
-            ) : (
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-gold font-display text-xl font-semibold text-ink transition-transform duration-700 group-hover:rotate-[360deg]">
-                S
-              </span>
-            )}
+            <SiteCrestImg
+              size={40}
+              alt={`${brand.brandName} logo`}
+              className="transition-transform duration-700 group-hover:rotate-[360deg]"
+            />
             <span className="leading-tight">
               <span className="block font-display text-[1.15rem] font-semibold tracking-[-0.01em]">
                 St. Thomas&apos; College
@@ -324,18 +322,10 @@ export function Navbar() {
               onClick={() => setOpen(false)}
               className="flex items-center gap-3"
             >
-              {brand.schoolLogo ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={brand.schoolLogo}
-                  alt={`${brand.brandName} logo`}
-                  className="h-10 w-10 rounded-full border border-white/20 bg-white object-contain p-0.5"
-                />
-              ) : (
-                <span className="grid h-10 w-10 place-items-center rounded-full bg-gold font-display text-xl font-semibold text-ink">
-                  S
-                </span>
-              )}
+              <SiteCrestImg
+                size={40}
+                alt={`${brand.brandName} logo`}
+              />
               <span className="leading-tight">
                 <span className="block font-display text-lg font-semibold tracking-[-0.01em]">
                   {brand.brandName}

@@ -46,9 +46,12 @@ const nextConfig: NextConfig = {
        of this ~100-route app resident until IT decides to collect. Setting
        the target limit in BYTES (the unit this Next build's config type
        documents) makes the engine run its garbage collector as it
-       approaches 1.5 GiB, trading a little recompile latency for a
-       server that stays alive. */
-    turbopackMemoryLimit: 1610612736,
+       approaches the cap, trading a little recompile latency for a
+       server that stays alive. v2.8.66.5: 1.5 GiB → 768 MiB — the
+       restored 62–64 feature tree enlarged the compile graph and the old
+       cap still allowed ~2.8 GB RSS, which the 4 GB sandbox kernel kept
+       killing. */
+    turbopackMemoryLimit: 805306368,
   },
   images: {
     localPatterns: [

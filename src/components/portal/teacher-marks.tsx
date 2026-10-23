@@ -334,6 +334,9 @@ export function TeacherMarks({
   const [detail, setDetail] = useState<TeacherAssessmentDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const registerRef = useRef<HTMLDivElement | null>(null);
+  /* v2.8.61.0 — per-row delete in the LIST too (the owner: "test walath
+     ehemai" — the register's delete button hid below the fold). */
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!flash) return;
@@ -381,6 +384,33 @@ export function TeacherMarks({
     requestAnimationFrame(() => {
       registerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
+  }
+
+  /* v2.8.61.0 — delete straight from the list (same endpoint + confirm as
+     the register's own Delete assessment button). */
+  async function removeAssessment(a: TeacherAssessmentItem) {
+    if (deletingId != null) return;
+    if (!window.confirm(`Delete "${a.title}" (${a.className} · ${a.subjectName}) and all its marks? This cannot be undone.`)) {
+      return;
+    }
+    setDeletingId(a.id);
+    try {
+      const res = await fetch(`/api/portal/assessments/${a.id}`, { method: "DELETE" });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || "Could not delete the assessment.");
+      }
+      if (detail?.id === a.id) setDetail(null);
+      setFlash({ ok: true, text: `Deleted "${a.title}".` });
+      await refreshList();
+    } catch (cause) {
+      setFlash({
+        ok: false,
+        text: cause instanceof Error ? cause.message : "Could not delete the assessment.",
+      });
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   async function create(e: React.FormEvent) {
@@ -587,37 +617,56 @@ export function TeacherMarks({
             {assessments.map((a) => {
               const isActive = detail?.id === a.id;
               return (
-                <button
+                <div
                   key={a.id}
-                  type="button"
-                  onClick={() => openRegister(a.id)}
-                  className={`block w-full rounded-xl border px-3.5 py-3 text-left transition-colors ${
+                  className={`flex items-stretch gap-2 rounded-xl border px-3.5 py-3 transition-colors ${
                     isActive
                       ? "border-[var(--pt-accent)] bg-[var(--pt-accent-soft)]"
-                      : "border-[var(--pt-border)] hover:bg-[var(--pt-panel-soft)]"
+                      : "border-[var(--pt-border)]"
                   }`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-[13px] font-semibold text-[var(--pt-heading)]">
-                        {a.title}
-                      </p>
-                      <p className="truncate text-[11px] text-[var(--pt-body)]">
-                        {a.className} · {a.subjectName} · {a.term} · out of {a.maxScore} · {a.createdLabel}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <span className="rounded-full bg-[var(--pt-chip)] px-2.5 py-1 text-[10.5px] font-semibold text-[var(--pt-chip-text)]">
-                        {a.markedCount}/{a.totalCount} marked
-                      </span>
-                      {a.avgPct != null ? (
-                        <span className="rounded-full bg-[var(--pt-good-bg)] px-2.5 py-1 text-[10.5px] font-semibold text-[var(--pt-good-text)]">
-                          avg {a.avgPct}% · {gradeForPct(a.avgPct)}
+                  <button
+                    type="button"
+                    onClick={() => openRegister(a.id)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-semibold text-[var(--pt-heading)]">
+                          {a.title}
+                        </p>
+                        <p className="truncate text-[11px] text-[var(--pt-body)]">
+                          {a.className} · {a.subjectName} · {a.term} · out of {a.maxScore} · {a.createdLabel}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <span className="rounded-full bg-[var(--pt-chip)] px-2.5 py-1 text-[10.5px] font-semibold text-[var(--pt-chip-text)]">
+                          {a.markedCount}/{a.totalCount} marked
                         </span>
-                      ) : null}
+                        {a.avgPct != null ? (
+                          <span className="rounded-full bg-[var(--pt-good-bg)] px-2.5 py-1 text-[10.5px] font-semibold text-[var(--pt-good-text)]">
+                            avg {a.avgPct}% · {gradeForPct(a.avgPct)}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                  {/* v2.8.61.0 — the delete door right on the row. */}
+                  <button
+                    type="button"
+                    onClick={() => void removeAssessment(a)}
+                    disabled={deletingId === a.id}
+                    aria-label={`Delete ${a.title}`}
+                    title="Delete this assessment and all its marks"
+                    className="grid w-9 shrink-0 place-items-center self-stretch rounded-lg text-[var(--pt-body)] transition-colors hover:bg-[var(--pt-danger-bg)] hover:text-[var(--pt-danger-text)] disabled:opacity-50"
+                  >
+                    {deletingId === a.id ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={13} />
+                    )}
+                  </button>
+                </div>
               );
             })}
           </div>

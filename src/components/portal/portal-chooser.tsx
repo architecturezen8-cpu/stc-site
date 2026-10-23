@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BookOpen, GraduationCap, HeartHandshake, Loader2 } from "lucide-react";
+import { BookOpen, GraduationCap, HeartHandshake, Landmark, Loader2 } from "lucide-react";
 
-type Role = "student" | "teacher" | "parent";
+type Role = "student" | "teacher" | "parent" | "principal";
 
 const CHOICES: {
   role: Role;
@@ -29,6 +29,12 @@ const CHOICES: {
     label: "Parent",
     blurb: "Follow your child's progress",
     icon: HeartHandshake,
+  },
+  {
+    role: "principal",
+    label: "Principal",
+    blurb: "Certify report cards",
+    icon: Landmark,
   },
 ];
 

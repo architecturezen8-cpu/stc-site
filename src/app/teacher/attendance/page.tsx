@@ -42,6 +42,7 @@ export default async function TeacherAttendancePage() {
         /* v2.8.51.0 — the dedicated Chat section with the unread badge */
         { label: "Chat", href: "/teacher/chat", badge: chatBadge },
         { label: "Marks", href: "/teacher/marks" },
+        { label: "Report card", href: "/teacher/report-card" },
         { label: "Materials", href: "/teacher/materials" },
         { label: "Timetable", href: "/teacher/timetable" },
         { label: "Classes", href: "/teacher#classes" },

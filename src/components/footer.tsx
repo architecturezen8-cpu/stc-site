@@ -3,6 +3,7 @@
 import { useEffect, useState, type ComponentType } from "react";
 import Link from "next/link";
 import { ArrowUp, Clock, Mail, MapPin, Phone } from "lucide-react";
+import { SiteCrestImg, useSiteBrand } from "@/components/site-brand";
 
 type IconProps = { size?: number; className?: string };
 
@@ -95,6 +96,12 @@ const socials: {
 ];
 
 export function Footer() {
+  /* v2.8.61.0 — the crest is SERVER-DELIVERED (root layout provider) — the
+     footer no longer paints the golden disc while the fetch lands.
+     v2.8.62.0 — renders through SiteCrestImg (browser remembers the last
+     good crest; the golden "S" only after the registry is confirmed empty),
+     and the settings refresh can never clobber a good value with "". */
+  const { schoolLogo: serverLogo } = useSiteBrand();
   const [settings, setSettings] = useState({
     brandName: "St. Thomas' College",
     brandSubline: "Matale · Est. 1873",
@@ -105,16 +112,19 @@ export function Footer() {
     address: "St. Thomas' College, Matale, Sri Lanka",
     officeHours: "Mon – Fri · 7.30 a.m. – 3.30 p.m.",
     admissionsYear: "2027",
-    schoolLogo: "",
+    schoolLogo: serverLogo,
   });
-  /* v2.8.60.0 — broken logo URLs fall back to the golden disc. */
-  const [logoFailed, setLogoFailed] = useState(false);
-  const footerLogo = settings.schoolLogo && !logoFailed ? settings.schoolLogo : "";
 
   useEffect(() => {
     fetch("/api/site-settings", { cache: "no-store" })
       .then((res) => res.json())
-      .then((data) => setSettings((current) => ({ ...current, ...data })))
+      .then((data) =>
+        setSettings((current) => ({
+          ...current,
+          ...data,
+          schoolLogo: data.schoolLogo || current.schoolLogo,
+        })),
+      )
       .catch(() => undefined);
   }, []);
 
@@ -128,19 +138,7 @@ export function Footer() {
           {/* Brand */}
           <div className="lg:col-span-4">
             <Link href="/#home" className="flex items-center gap-3">
-              {footerLogo ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={footerLogo}
-                  alt={`${settings.brandName} logo`}
-                  onError={() => setLogoFailed(true)}
-                  className="h-11 w-11 rounded-full border border-white/20 bg-white object-contain p-0.5"
-                />
-              ) : (
-                <span className="grid h-11 w-11 place-items-center rounded-full bg-gold font-display text-xl font-semibold text-ink">
-                  S
-                </span>
-              )}
+              <SiteCrestImg size={44} alt={`${settings.brandName} logo`} />
               <span className="leading-tight">
                 <span className="block font-display text-xl font-semibold tracking-[-0.01em]">
                   {settings.brandName}

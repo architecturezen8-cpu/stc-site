@@ -210,8 +210,12 @@ export function PortalRegisterForm({
             placeholder="e.g. A.P. Silva"
             autoComplete="name"
           />
+          {/* v2.8.62.0 — the owner: "godak welawata thawa details danna
+              wenawa ne" — only admission no, name and class are REQUIRED;
+              the register-matcher skips whatever the office has not
+              recorded, so these can never block a family. */}
           <Text
-            label="Register number"
+            label="Register number (optional)"
             value={registerNo}
             onChange={setRegisterNo}
             placeholder="e.g. 1187"
@@ -246,13 +250,13 @@ export function PortalRegisterForm({
             />
           )}
           <Text
-            label="Father's full name (with initials)"
+            label="Father's full name (optional)"
             value={fatherName}
             onChange={setFatherName}
             placeholder="e.g. W.A. Silva"
           />
           <Text
-            label="Mother's full name (with initials)"
+            label="Mother's full name (optional)"
             value={motherName}
             onChange={setMotherName}
             placeholder="e.g. K.G. Silva"

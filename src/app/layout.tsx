@@ -21,6 +21,8 @@ import {
   getPublishedVisualPatchMap,
 } from "@/lib/visual-patch-boot";
 import { getSiteSettings } from "@/lib/cms";
+import { getSchoolCrestValue, stampLogoUrl } from "@/lib/logos";
+import { SiteBrandProvider } from "@/components/site-brand";
 import "./globals.css";
 
 const display = Inter_Tight({
@@ -161,6 +163,17 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     /* DB not ready — defaults keep the site booting. */
   }
 
+  /* v2.8.61.0 — the navbar/footer crest arrives WITH the HTML (the owner's
+     reload flash: golden S disc painted before the real logo). Same
+     server-delivery pattern the portal layouts already use. */
+  let crestSrc = "";
+  try {
+    const crest = await getSchoolCrestValue();
+    if (crest.src) crestSrc = stampLogoUrl(crest);
+  } catch {
+    /* registry hiccup — the client fetch stays as the fallback */
+  }
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -192,7 +205,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         {/* v2.8.60.0 — open tabs follow the maintenance switch live (public
             site + portals + login; admin studios keep their preview). */}
         <MaintenanceWatch />
-        {children}
+        <SiteBrandProvider schoolLogo={crestSrc}>{children}</SiteBrandProvider>
         <SitePopup />
         <Suspense fallback={null}>
           <PublishedVisualPatches />

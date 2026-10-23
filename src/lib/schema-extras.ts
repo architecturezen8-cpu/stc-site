@@ -652,6 +652,119 @@ async function run() {
   await db.execute(
     sql`CREATE INDEX IF NOT EXISTS "lms_notice_files_notice_idx" ON "lms_notice_files" ("notice_id")`,
   );
+
+  /* ── v2.8.62.0 — DIGITAL TERMINAL REPORT CARD ─────────────────────────
+     One sheet per student per year; marks grid + per-term remarks.
+     Summary rows are computed at read time from the class's PUBLISHED
+     sheets, so only the two leaf tables + the card header are stored. */
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "lms_report_cards" (
+      "id" serial PRIMARY KEY,
+      "student_id" integer NOT NULL,
+      "class_id" integer NOT NULL,
+      "year" varchar(9) NOT NULL,
+      "grade" varchar(10) NOT NULL,
+      "status" varchar(10) DEFAULT 'draft' NOT NULL,
+      "created_by_account_id" integer,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      "updated_at" timestamp DEFAULT now() NOT NULL
+    )
+  `);
+  await db.execute(
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS "lms_report_cards_unique" ON "lms_report_cards" ("student_id", "year")`,
+  );
+  await db.execute(
+    sql`CREATE INDEX IF NOT EXISTS "lms_report_cards_class_idx" ON "lms_report_cards" ("class_id", "year")`,
+  );
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "lms_report_marks" (
+      "id" serial PRIMARY KEY,
+      "card_id" integer NOT NULL,
+      "subject" text NOT NULL,
+      "position" integer DEFAULT 0 NOT NULL,
+      "m1" integer,
+      "m2" integer,
+      "m3" integer
+    )
+  `);
+  await db.execute(
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS "lms_report_marks_unique" ON "lms_report_marks" ("card_id", "subject")`,
+  );
+  await db.execute(
+    sql`CREATE INDEX IF NOT EXISTS "lms_report_marks_card_idx" ON "lms_report_marks" ("card_id")`,
+  );
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "lms_report_terms" (
+      "id" serial PRIMARY KEY,
+      "card_id" integer NOT NULL,
+      "term" integer NOT NULL,
+      "studies" text DEFAULT '' NOT NULL,
+      "conduct" text DEFAULT '' NOT NULL,
+      "attendance" varchar(30) DEFAULT '' NOT NULL
+    )
+  `);
+  await db.execute(
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS "lms_report_terms_unique" ON "lms_report_terms" ("card_id", "term")`,
+  );
+  await db.execute(
+    sql`CREATE INDEX IF NOT EXISTS "lms_report_terms_card_idx" ON "lms_report_terms" ("card_id")`,
+  );
+
+  /* ── v2.8.63.0 — PRINCIPAL CERTIFICATION (owner-approved policy) ────────
+     A sheet becomes visible to students & parents ONLY after the Principal
+     certifies it. Lifecycle: draft → submitted → certified (a return goes
+     back to draft with the Principal's note). The pre-63 "published" state
+     folds into "certified" so legacy sheets keep their visibility. */
+  await db.execute(
+    sql`ALTER TABLE "lms_report_cards" ADD COLUMN IF NOT EXISTS "submitted_at" timestamp`,
+  );
+  await db.execute(
+    sql`ALTER TABLE "lms_report_cards" ADD COLUMN IF NOT EXISTS "certified_at" timestamp`,
+  );
+  await db.execute(
+    sql`ALTER TABLE "lms_report_cards" ADD COLUMN IF NOT EXISTS "certified_by_account_id" integer`,
+  );
+  await db.execute(
+    sql`ALTER TABLE "lms_report_cards" ADD COLUMN IF NOT EXISTS "certified_by_name" varchar(120)`,
+  );
+  await db.execute(
+    sql`ALTER TABLE "lms_report_cards" ADD COLUMN IF NOT EXISTS "principal_note" text`,
+  );
+  await db.execute(
+    sql`ALTER TABLE "lms_report_cards" ADD COLUMN IF NOT EXISTS "returned_at" timestamp`,
+  );
+  await db.execute(sql`
+    UPDATE "lms_report_cards" SET "status" = 'certified' WHERE "status" = 'published'
+  `);
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "lms_signatures" (
+      "id" serial PRIMARY KEY,
+      "account_id" integer NOT NULL,
+      "kind" varchar(10) NOT NULL,
+      "mime" varchar(40) DEFAULT 'image/png' NOT NULL,
+      "data" text NOT NULL,
+      "bytes" integer DEFAULT 0 NOT NULL,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      "updated_at" timestamp DEFAULT now() NOT NULL
+    )
+  `);
+  await db.execute(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS "lms_signatures_account_kind_unique"
+      ON "lms_signatures" ("account_id", "kind")
+  `);
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "lms_report_card_events" (
+      "id" serial PRIMARY KEY,
+      "card_id" integer NOT NULL,
+      "actor_account_id" integer NOT NULL,
+      "action" varchar(20) NOT NULL,
+      "note" text,
+      "created_at" timestamp DEFAULT now() NOT NULL
+    )
+  `);
+  await db.execute(
+    sql`CREATE INDEX IF NOT EXISTS "lms_report_card_events_card_idx" ON "lms_report_card_events" ("card_id")`,
+  );
 }
 
 export function ensureSchemaExtras() {

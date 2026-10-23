@@ -71,6 +71,7 @@ export default async function ParentDashboardPage() {
         { label: "Children", href: "#children" },
         { label: "Homework", href: "/parent/homework" },
         { label: "Marks", href: "/parent/marks" },
+        { label: "Report card", href: "/parent/report-card" },
         { label: "Notices", href: "#notices" },
         { label: "Support", href: "#support" },
         { label: "Profile", href: "/parent/profile" },
@@ -103,11 +104,15 @@ export default async function ParentDashboardPage() {
               value: avgAttendance != null ? `${avgAttendance}%` : "—",
               label: "Avg Attendance",
               icon: <UserRoundCheck size={17} aria-hidden="true" />,
+              /* v2.8.61.0 — the two averages were dead cards; they land on
+                  the children wall where every child's own numbers live. */
+              href: "#children",
             },
             {
               value: avgMarks != null ? `${avgMarks}%` : "—",
               label: "Avg Marks",
               icon: <BookOpen size={17} aria-hidden="true" />,
+              href: "#children",
             },
             {
               value: String(data.notices.length),
@@ -199,11 +204,17 @@ export default async function ParentDashboardPage() {
             <div id="support" className="pt-rise pt-d4 scroll-mt-24">
               <Panel title="Support" subtitle="We're here to help">
                 <div className="space-y-2.5">
+                  {/* v2.8.61.0 — the office row is a REAL phone link now
+                      (the owner: icons that do nothing). tel: opens the
+                      dialer on phones, Maps-free and honest. */}
                   <ListRow
                     icon={<Phone size={15} />}
                     title="School Office"
                     desc="For account changes, links and invitations."
-                    meta={[{ text: "Contact the office" }]}
+                    meta={[
+                      { icon: <Phone size={11} />, text: "Tap to call +94 66 222 0173" },
+                    ]}
+                    href="tel:+94662220173"
                   />
                   <ListRow
                     icon={<ShieldCheck size={15} />}
@@ -245,7 +256,7 @@ export default async function ParentDashboardPage() {
             </div>
 
             <div id="notices" className="pt-rise pt-d3 scroll-mt-24">
-              <Panel title="School Notices" subtitle="From their classes" action="filter">
+              <Panel title="School Notices" subtitle="From their classes">
                 {data.notices.length === 0 ? (
                   <EmptyNote>
                     Notices from your children&apos;s classes will appear

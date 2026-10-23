@@ -72,6 +72,7 @@ export default async function ParentChildMarksPage({
         { label: "Children", href: "/parent#children" },
         { label: "Homework", href: "/parent/homework" },
         { label: "Marks", href: "/parent/marks", active: true },
+        { label: "Report card", href: "/parent/report-card" },
         { label: "Notices", href: "/parent#notices" },
         { label: "Profile", href: "/parent/profile" },
       ]}

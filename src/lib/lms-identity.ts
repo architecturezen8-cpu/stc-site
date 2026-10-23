@@ -283,11 +283,14 @@ export async function ensureParentPerson(accountId: number): Promise<LmsParentRo
 
 /** Dispatcher used by the dashboards/profile — never throws. */
 export async function ensureLmsPerson(
-  role: "student" | "teacher" | "parent",
+  role: "student" | "teacher" | "parent" | "principal",
   accountId: number,
   email = "",
 ): Promise<LmsStudentRow | LmsTeacherRow | LmsParentRow | null> {
   try {
+    /* v2.8.63.0 — the Principal is a portal-only role: no LMS person row,
+       no register bridge. Their dashboards read the certification queue. */
+    if (role === "principal") return null;
     if (role === "student") return await ensureStudentPerson(accountId, email);
     if (role === "teacher") return await ensureTeacherPerson(accountId);
     return await ensureParentPerson(accountId);

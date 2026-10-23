@@ -12,7 +12,8 @@ import {
 import { PortalShell, type PortalNavItem } from "@/components/portal/portal-shell";
 import { EmptyNote, Panel } from "@/components/portal/dashboard-widgets";
 import { ProfilePhotoUpload } from "@/components/portal/profile-photo-upload";
-import { requirePortal } from "@/lib/portal-auth";
+import { SignatureStudio } from "@/components/portal/signature-studio";
+import { requirePortal, type PortalSession } from "@/lib/portal-auth";
 import { getPortalProfile } from "@/lib/portal-profile";
 import { chatUnreadBadge } from "@/lib/portal-questions";
 
@@ -24,12 +25,16 @@ import { chatUnreadBadge } from "@/lib/portal-questions";
    automatically (the "sync" the owner asked for).
    ──────────────────────────────────────────────────────────────────────── */
 
-const NAV_BASE: Record<"student" | "teacher" | "parent", PortalNavItem[]> = {
+const NAV_BASE: Record<
+  "student" | "teacher" | "parent" | "principal",
+  PortalNavItem[]
+> = {
   student: [
     { label: "Dashboard", href: "/student" },
     { label: "Timetable", href: "/student/timetable" },
     { label: "Homework", href: "#homework" },
     { label: "Marks", href: "#marks" },
+    { label: "Report card", href: "/student/report-card" },
     { label: "Notices", href: "#notices" },
   ],
   teacher: [
@@ -39,6 +44,7 @@ const NAV_BASE: Record<"student" | "teacher" | "parent", PortalNavItem[]> = {
        the top navigation (owner bug report). */
     { label: "Attendance", href: "/teacher/attendance" },
     { label: "Timetable", href: "/teacher/timetable" },
+    { label: "Report card", href: "/teacher/report-card" },
     { label: "Classes", href: "#classes" },
     { label: "Marking", href: "#marking" },
     { label: "Notices", href: "#notices" },
@@ -46,15 +52,23 @@ const NAV_BASE: Record<"student" | "teacher" | "parent", PortalNavItem[]> = {
   parent: [
     { label: "Dashboard", href: "/parent" },
     { label: "Children", href: "#children" },
+    { label: "Report card", href: "/parent/report-card" },
     { label: "Notices", href: "#notices" },
     { label: "Support", href: "#support" },
   ],
+  /* v2.8.63.0 — the Principal's certification portal. */
+  principal: [
+    { label: "Dashboard", href: "/principal" },
+    { label: "Certify", href: "/principal/report-card" },
+    { label: "Signature", href: "/principal/signature" },
+  ],
 };
 
-const ROLE_LABEL: Record<"student" | "teacher" | "parent", string> = {
+const ROLE_LABEL: Record<"student" | "teacher" | "parent" | "principal", string> = {
   student: "Student Portal",
   teacher: "Teacher Portal",
   parent: "Parent Portal",
+  principal: "Principal Portal",
 };
 
 function initialsOf(name: string): string {
@@ -117,7 +131,11 @@ function TeacherContact({ name, phone }: { name: string; phone: string }) {
   );
 }
 
-export async function PortalProfilePage({ role }: { role: "student" | "teacher" | "parent" }) {
+export async function PortalProfilePage({
+  role,
+}: {
+  role: "student" | "teacher" | "parent" | "principal";
+}) {
   const session = await requirePortal(role);
   const [profile, chatBadge] = await Promise.all([
     getPortalProfile({
@@ -127,17 +145,17 @@ export async function PortalProfilePage({ role }: { role: "student" | "teacher" 
       fullName: session.fullName,
       avatarUrl: session.avatarUrl,
     }),
-    /* v2.8.51.0 — the Chat nav badge (student + teacher only; parents
-       never hold Q&A conversations). */
-    role === "parent"
-      ? Promise.resolve(0)
-      : chatUnreadBadge(role, session.accountId),
+    /* v2.8.51.0 — the Chat nav badge (student + teacher only; parents and
+       the Principal never hold Q&A conversations). */
+    role === "student" || role === "teacher"
+      ? chatUnreadBadge(role, session.accountId)
+      : Promise.resolve(0),
   ]);
 
   /* v2.8.51.0 — the Chat section rides in the profile nav too (parents
      have no chat — the Q&A is strictly student↔teacher). */
   const nav: PortalNavItem[] = [
-    ...NAV_BASE[role].slice(0, role === "student" ? 3 : 2),
+    ...NAV_BASE[role].slice(0, role === "student" ? 3 : role === "principal" ? 2 : 2),
     ...(role === "student" || role === "teacher"
       ? [
           {
@@ -296,15 +314,23 @@ export async function PortalProfilePage({ role }: { role: "student" | "teacher" 
           </Panel>
         ) : (
           <Panel
-            title={role === "student" ? "My School Record" : "Staff Register Record"}
+            title={role === "student" ? "My School Record" : role === "principal" ? "Principal" : "Staff Register Record"}
           >
             <EmptyNote>
-              The school office hasn&apos;t linked your register row yet — once
-              the office confirms your details, they will appear here
-              automatically.
+              {role === "principal"
+                ? "The Principal portal reads the certification queue directly — no school register row is needed here."
+                : "The school office hasn't linked your register row yet — once the office confirms your details, they will appear here automatically."}
             </EmptyNote>
           </Panel>
         )}
+
+        {/* v2.8.63.0 — the PRIVATE signature stamp (report-card flow).
+            Teachers upload their signature; the Principal uploads their
+            signature + the college seal. Bytes stay in the database — no
+            public URL, served only through session-gated routes. */}
+        {role === "teacher" || role === "principal" ? (
+          <SignatureStudio role={role} session={session} />
+        ) : null}
       </div>
     </PortalShell>
   );

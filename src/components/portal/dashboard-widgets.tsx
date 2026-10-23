@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import {
   ArrowUpRight,
   BookOpen,
   Briefcase,
-  ChevronDown,
   ExternalLink,
   FlaskConical,
   Globe2,
@@ -12,14 +12,11 @@ import {
   Languages,
   Link2,
   MonitorSmartphone,
-  MoreVertical,
   Music,
   Palette,
   Paperclip,
   PartyPopper,
-  Search,
   Sigma,
-  SlidersHorizontal,
   Trophy,
 } from "lucide-react";
 
@@ -148,9 +145,9 @@ export function StatCards({
         );
         const cls = `pt-rise pt-d${Math.min(3, i + 1)} pt-panel-shadow group rounded-3xl border border-[var(--pt-border)] bg-[var(--pt-panel)] p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-[var(--pt-border-strong)] sm:p-5`;
         return stat.href ? (
-          <a key={stat.label} href={stat.href} className={cls}>
+          <Link key={stat.label} href={stat.href} className={cls}>
             {body}
-          </a>
+          </Link>
         ) : (
           <div key={stat.label} className={cls}>
             {body}
@@ -172,12 +169,16 @@ export function TodayStrip({
   slots,
   ctaLabel,
   ctaHref,
+  chipHref,
 }: {
   dayLabel: string;
   dateLabel: string;
   slots: { period: number; subject: string; room?: string }[];
   ctaLabel?: string;
   ctaHref?: string;
+  /** v2.8.61.0 — each period chip jumps somewhere real (the dashboard's
+      timetable panel) instead of sitting static. */
+  chipHref?: string;
 }) {
   if (slots.length === 0) return null;
   return (
@@ -187,33 +188,43 @@ export function TodayStrip({
           Today · {dayLabel} {dateLabel}
         </p>
         {ctaLabel && ctaHref ? (
-          <a
+          <Link
             href={ctaHref}
             className="shrink-0 text-[11px] font-semibold text-[var(--pt-body)] underline-offset-2 hover:text-[var(--pt-heading)] hover:underline"
           >
             {ctaLabel}
-          </a>
+          </Link>
         ) : null}
       </div>
       <div className="pt-scrollbar mt-2.5 flex gap-2 overflow-x-auto pb-1">
-        {slots.map((slot, i) => (
-          <span
-            key={i}
-            className="flex shrink-0 items-center gap-2 rounded-2xl border border-[var(--pt-divider)] bg-[var(--pt-panel-soft)] py-1.5 pl-1.5 pr-3"
-          >
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--pt-accent-soft)] font-display text-[11px] font-bold text-[var(--pt-accent-text)]">
-              {slot.period}
-            </span>
-            <span className="whitespace-nowrap text-[12px] font-semibold text-[var(--pt-heading)]">
-              {slot.subject}
-            </span>
-            {slot.room ? (
-              <span className="whitespace-nowrap text-[10.5px] text-[var(--pt-muted)]">
-                {slot.room}
+        {slots.map((slot, i) => {
+          const chip = (
+            <>
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--pt-accent-soft)] font-display text-[11px] font-bold text-[var(--pt-accent-text)]">
+                {slot.period}
               </span>
-            ) : null}
-          </span>
-        ))}
+              <span className="whitespace-nowrap text-[12px] font-semibold text-[var(--pt-heading)]">
+                {slot.subject}
+              </span>
+              {slot.room ? (
+                <span className="whitespace-nowrap text-[10.5px] text-[var(--pt-muted)]">
+                  {slot.room}
+                </span>
+              ) : null}
+            </>
+          );
+          const cls =
+            "flex shrink-0 items-center gap-2 rounded-2xl border border-[var(--pt-divider)] bg-[var(--pt-panel-soft)] py-1.5 pl-1.5 pr-3";
+          return chipHref ? (
+            <Link key={i} href={chipHref} className={cls} title={`See ${slot.subject} in the timetable`}>
+              {chip}
+            </Link>
+          ) : (
+            <span key={i} className={cls}>
+              {chip}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
@@ -257,7 +268,7 @@ export function QuickActions({
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {actions.map((a, i) => (
-        <a
+        <Link
           key={a.label}
           href={a.href}
           className={`pt-rise pt-d${Math.min(3, i + 1)} pt-panel-shadow group flex items-center gap-3 rounded-3xl border border-[var(--pt-border)] bg-[var(--pt-panel)] p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-[var(--pt-accent)]`}
@@ -271,7 +282,7 @@ export function QuickActions({
             </span>
             <span className="block truncate text-[11px] text-[var(--pt-body)]">{a.sub}</span>
           </span>
-        </a>
+        </Link>
       ))}
     </div>
   );
@@ -289,7 +300,7 @@ export function MarkingCounter({
 }) {
   const done = count === 0;
   return (
-    <a
+    <Link
       href={href}
       className={`pt-rise pt-d2 pt-panel-shadow flex items-center justify-between gap-4 rounded-3xl border p-5 transition-all duration-300 hover:-translate-y-0.5 ${
         done
@@ -321,7 +332,7 @@ export function MarkingCounter({
       <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-[var(--pt-border)] text-[var(--pt-faint)] transition-all duration-300 group-hover:border-[var(--pt-accent)] group-hover:text-[var(--pt-accent-text)]">
         <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
       </span>
-    </a>
+    </Link>
   );
 }
 
@@ -382,29 +393,54 @@ export function SubjectGlyph({ name }: { name: string }) {
   return hit ? hit.icon : <BookOpen size={15} />;
 }
 
-/** Phase 5.1 — the My Subjects panel's card wall. */
-export function SubjectCards({ subjects }: { subjects: string[] }) {
+/** Phase 5.1 — the My Subjects panel's card wall.
+ *  v2.8.61.0 — the owner: the tiles sat static with a hover lift and did
+ *  nothing. Each card is now a real link — on the student dashboard it
+ *  opens the homework list filtered to that subject (hrefBase). */
+export function SubjectCards({
+  subjects,
+  hrefBase,
+}: {
+  subjects: string[];
+  /** e.g. "/student/homework" — each tile links to <hrefBase>?subject=<name>. */
+  hrefBase?: string;
+}) {
   if (subjects.length === 0) return null;
+  const card = (s: string, i: number) => (
+    <>
+      <span
+        className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${PT_TINTS[i % PT_TINTS.length]}`}
+      >
+        <SubjectGlyph name={s} />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-[12.5px] font-semibold text-[var(--pt-heading)]">
+          {s}
+        </span>
+        <span className="block text-[10.5px] text-[var(--pt-muted)]">This year</span>
+      </span>
+    </>
+  );
+  const cls =
+    "flex items-center gap-2.5 rounded-2xl border border-[var(--pt-divider)] bg-[var(--pt-panel-soft)] p-3 transition-all duration-300 hover:-translate-y-px hover:border-[var(--pt-border-strong)]";
   return (
     <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-      {subjects.map((s, i) => (
-        <div
-          key={`${s}-${i}`}
-          className="flex items-center gap-2.5 rounded-2xl border border-[var(--pt-divider)] bg-[var(--pt-panel-soft)] p-3 transition-all duration-300 hover:-translate-y-px hover:border-[var(--pt-border-strong)]"
-        >
-          <span
-            className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${PT_TINTS[i % PT_TINTS.length]}`}
+      {subjects.map((s, i) =>
+        hrefBase ? (
+          <Link
+            key={`${s}-${i}`}
+            href={`${hrefBase}?subject=${encodeURIComponent(s)}`}
+            className={cls}
+            title={`Open ${s} homework`}
           >
-            <SubjectGlyph name={s} />
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-[12.5px] font-semibold text-[var(--pt-heading)]">
-              {s}
-            </span>
-            <span className="block text-[10.5px] text-[var(--pt-muted)]">This year</span>
-          </span>
-        </div>
-      ))}
+            {card(s, i)}
+          </Link>
+        ) : (
+          <div key={`${s}-${i}`} className={cls}>
+            {card(s, i)}
+          </div>
+        ),
+      )}
     </div>
   );
 }
@@ -477,7 +513,11 @@ export function Panel({
 }: {
   title: string;
   subtitle?: string;
-  action?: "search-filter" | "period" | "filter" | null;
+  /** v2.8.61.0 — only "period" survives; the decorative Search/Filter/
+      More circle buttons are GONE (the owner: they did nothing and looked
+      broken). "period" renders one passive info chip — no chevron, no
+      fake dropdown. */
+  action?: "period" | null;
   children: ReactNode;
   className?: string;
 }) {
@@ -494,56 +534,14 @@ export function Panel({
             <p className="mt-0.5 text-[12.5px] text-[var(--pt-body)]">{subtitle}</p>
           )}
         </div>
-        {action === "search-filter" && (
-          <div className="flex shrink-0 gap-1.5">
-            <CircleButton label="Search">
-              <Search size={14} />
-            </CircleButton>
-            <CircleButton label="Filter">
-              <SlidersHorizontal size={14} />
-            </CircleButton>
-          </div>
-        )}
         {action === "period" && (
-          <div className="flex shrink-0 gap-1.5">
-            <span className="flex h-9 items-center gap-1.5 rounded-full border border-[var(--pt-border)] px-3.5 text-[12.5px] font-medium text-[var(--pt-chip-text)]">
-              Weekly
-              <ChevronDown size={13} className="text-[var(--pt-muted)]" />
-            </span>
-            <CircleButton label="More options">
-              <MoreVertical size={14} />
-            </CircleButton>
-          </div>
-        )}
-        {action === "filter" && (
-          <div className="shrink-0">
-            <CircleButton label="Filter">
-              <SlidersHorizontal size={14} />
-            </CircleButton>
-          </div>
+          <span className="shrink-0 rounded-full bg-[var(--pt-chip)] px-3 py-1.5 text-[11px] font-semibold text-[var(--pt-chip-text)]">
+            Weekly view
+          </span>
         )}
       </div>
       {children}
     </section>
-  );
-}
-
-function CircleButton({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      className="grid h-9 w-9 place-items-center rounded-full border border-[var(--pt-border)] text-[var(--pt-body)] transition-all duration-300 hover:scale-105 hover:border-[var(--pt-accent)] hover:text-[var(--pt-accent-text)]"
-    >
-      {children}
-    </button>
   );
 }
 
@@ -581,12 +579,12 @@ export function HeroRow({
             {secondaryValue}
           </p>
         </div>
-        <a
+        <Link
           href={ctaHref}
           className="flex h-11 items-center gap-2 rounded-full bg-[var(--pt-accent)] px-5 text-[13.5px] font-semibold text-[var(--pt-on-accent)] transition-all duration-300 hover:-translate-y-px hover:bg-[var(--pt-accent-hover)] hover:shadow-[0_10px_24px_-12px_rgb(255_212_68/0.5)]"
         >
           {ctaLabel}
-        </a>
+        </Link>
       </div>
     </div>
   );
@@ -816,6 +814,7 @@ export function ListRow({
   desc,
   meta,
   right,
+  href,
 }: {
   icon?: ReactNode;
   title: string;
@@ -823,43 +822,53 @@ export function ListRow({
   /** Small pills rendered under the title (with icon + text each). */
   meta?: { icon?: ReactNode; text: string }[];
   right?: ReactNode;
+  /** v2.8.61.0 — a real destination turns the whole row into a link
+      (the parent Support panel's "call the office" row). */
+  href?: string;
 }) {
-  return (
-    <div className="rounded-2xl border border-[var(--pt-divider)] bg-[var(--pt-panel-soft)] p-3.5 transition-all duration-300 hover:-translate-y-px hover:border-[var(--pt-border-strong)] sm:p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          {icon && (
-            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[var(--pt-accent-soft)] text-[var(--pt-accent-text)] transition-colors duration-300">
-              {icon}
-            </span>
-          )}
-          <div className="min-w-0">
-            <p className="truncate font-display text-[15px] font-semibold tracking-[-0.01em] text-[var(--pt-heading)]">
-              {title}
+  const body = (
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex min-w-0 items-start gap-3">
+        {icon && (
+          <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[var(--pt-accent-soft)] text-[var(--pt-accent-text)] transition-colors duration-300">
+            {icon}
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="truncate font-display text-[15px] font-semibold tracking-[-0.01em] text-[var(--pt-heading)]">
+            {title}
+          </p>
+          {desc && (
+            <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-relaxed text-[var(--pt-body)]">
+              {desc}
             </p>
-            {desc && (
-              <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-relaxed text-[var(--pt-body)]">
-                {desc}
-              </p>
-            )}
-            {meta && meta.length > 0 && (
-              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                {meta.map((m, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-[var(--pt-chip)] px-2.5 py-1 text-[11px] font-medium text-[var(--pt-chip-text)]"
-                  >
-                    {m.icon}
-                    {m.text}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
+          {meta && meta.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              {meta.map((m, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--pt-chip)] px-2.5 py-1 text-[11px] font-medium text-[var(--pt-chip-text)]"
+                >
+                  {m.icon}
+                  {m.text}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-        {right && <div className="shrink-0 pt-0.5">{right}</div>}
       </div>
+      {right && <div className="shrink-0 pt-0.5">{right}</div>}
     </div>
+  );
+  const cls =
+    "rounded-2xl border border-[var(--pt-divider)] bg-[var(--pt-panel-soft)] p-3.5 transition-all duration-300 hover:-translate-y-px hover:border-[var(--pt-border-strong)] sm:p-4";
+  return href ? (
+    <Link href={href} className={cls}>
+      {body}
+    </Link>
+  ) : (
+    <div className={cls}>{body}</div>
   );
 }
 

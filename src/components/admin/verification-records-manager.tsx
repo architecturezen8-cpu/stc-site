@@ -530,9 +530,14 @@ export function VerificationRecordsManager({
             >
               {tab === "student" ? (
                 <>
+                  {/* v2.8.62.0 — the owner: "verification records daddi godak
+                      welawata thawa details danna wenawa ne" — only the THREE
+                      fields verification actually needs are required now;
+                      everything else is optional and can be added later with
+                      Edit. The register matcher skips the details the office
+                      has not filled in yet. */}
                   <input required value={form.admissionNo ?? ""} onChange={(e) => set("admissionNo")(e.target.value)} className={input} placeholder="Admission number *" aria-label="Admission number" />
                   <input required value={form.fullName ?? ""} onChange={(e) => set("fullName")(e.target.value)} className={input} placeholder="Full name *" aria-label="Full name" />
-                  <input required value={form.registerNo ?? ""} onChange={(e) => set("registerNo")(e.target.value)} className={input} placeholder="Register number" aria-label="Register number" />
                   {/* v2.8.59.0 — the owner: "selection list ekak demuda" — no
                       more free-typed classes; pick from the school's real
                       names so verification never fails on a typo. */}
@@ -556,10 +561,17 @@ export function VerificationRecordsManager({
                   ) : (
                     <input required value={form.className ?? ""} onChange={(e) => set("className")(e.target.value)} className={input} placeholder="Class (e.g. 10-A) *" aria-label="Class" />
                   )}
-                  <input required value={form.fatherName ?? ""} onChange={(e) => set("fatherName")(e.target.value)} className={input} placeholder="Father's full name (with initials) *" aria-label="Father's full name" />
-                  <input required value={form.motherName ?? ""} onChange={(e) => set("motherName")(e.target.value)} className={input} placeholder="Mother's full name (with initials) *" aria-label="Mother's full name" />
+                  <input value={form.registerNo ?? ""} onChange={(e) => set("registerNo")(e.target.value)} className={input} placeholder="Register number (optional)" aria-label="Register number" />
+                  <input value={form.fatherName ?? ""} onChange={(e) => set("fatherName")(e.target.value)} className={input} placeholder="Father's full name (optional)" aria-label="Father's full name" />
+                  <input value={form.motherName ?? ""} onChange={(e) => set("motherName")(e.target.value)} className={input} placeholder="Mother's full name (optional)" aria-label="Mother's full name" />
                   <input value={form.phone ?? ""} onChange={(e) => set("phone")(e.target.value)} className={input} placeholder="Phone (optional)" aria-label="Phone" />
                   <input type="email" value={form.email ?? ""} onChange={(e) => set("email")(e.target.value)} className={input} placeholder="Email (optional)" aria-label="Email" />
+                  <p className="text-[11.5px] leading-relaxed text-[var(--la-faint)]">
+                    Only the admission number, name and class are needed to add
+                    a student — the rest can be filled in later with the Edit
+                    button. Blank details are simply skipped when checking
+                    registrations, never held against them.
+                  </p>
                 </>
               ) : (
                 <>
@@ -624,7 +636,7 @@ export function VerificationRecordsManager({
                     Admission number is locked — it identifies this student everywhere.
                   </p>
                   <input required value={form.fullName ?? ""} onChange={(e) => set("fullName")(e.target.value)} className={input} placeholder="Full name *" aria-label="Full name" />
-                  <input value={form.registerNo ?? ""} onChange={(e) => set("registerNo")(e.target.value)} className={input} placeholder="Register number" aria-label="Register number" />
+                  <input value={form.registerNo ?? ""} onChange={(e) => set("registerNo")(e.target.value)} className={input} placeholder="Register number (optional)" aria-label="Register number" />
                   {/* v2.8.59.0 — dropdown here too (the row's own class is
                       included as an option even if the master list moved on). */}
                   {(() => {
@@ -649,8 +661,8 @@ export function VerificationRecordsManager({
                       <input required value={form.className ?? ""} onChange={(e) => set("className")(e.target.value)} className={input} placeholder="Class (e.g. 10-A) *" aria-label="Class" />
                     );
                   })()}
-                  <input required value={form.fatherName ?? ""} onChange={(e) => set("fatherName")(e.target.value)} className={input} placeholder="Father's full name (with initials) *" aria-label="Father's full name" />
-                  <input required value={form.motherName ?? ""} onChange={(e) => set("motherName")(e.target.value)} className={input} placeholder="Mother's full name (with initials) *" aria-label="Mother's full name" />
+                  <input value={form.fatherName ?? ""} onChange={(e) => set("fatherName")(e.target.value)} className={input} placeholder="Father's full name (optional)" aria-label="Father's full name" />
+                  <input value={form.motherName ?? ""} onChange={(e) => set("motherName")(e.target.value)} className={input} placeholder="Mother's full name (optional)" aria-label="Mother's full name" />
                   <input value={form.phone ?? ""} onChange={(e) => set("phone")(e.target.value)} className={input} placeholder="Phone (optional)" aria-label="Phone" />
                   <input type="email" value={form.email ?? ""} onChange={(e) => set("email")(e.target.value)} className={input} placeholder="Email (optional)" aria-label="Email" />
                 </>

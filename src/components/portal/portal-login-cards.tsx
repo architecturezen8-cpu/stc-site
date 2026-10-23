@@ -4,18 +4,21 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import {
   PORTAL_ROLES,
+  REGISTERABLE_ROLES,
   type PortalRoleKey,
 } from "@/components/portal/portal-meta";
 
 /**
- * The three role cards on /login (and /register). Each card opens that
+ * The role cards on /login (and /register). Each card opens that
  * portal's sign-in (or registration) page — errors and hints live there,
- * keeping this picker calm.
+ * keeping this picker calm. v2.8.63.0 — the register picker never offers
+ * the Principal (invite-only role).
  */
 export function PortalLoginCards({ register = false }: { register?: boolean }) {
+  const entries = register ? REGISTERABLE_ROLES : PORTAL_ROLES;
   return (
     <div className="grid w-full gap-3 sm:gap-4">
-      {PORTAL_ROLES.map((entry) => {
+      {entries.map((entry) => {
         const Icon = entry.icon;
         return (
           <Link

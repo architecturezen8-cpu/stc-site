@@ -64,6 +64,7 @@ export default async function StudentHomeworkPage({
         /* v2.8.51.0 — the dedicated Chat section with the unread badge */
         { label: "Chat", href: "/student/chat", badge: chatBadge },
         { label: "Marks", href: "/student#marks" },
+        { label: "Report card", href: "/student/report-card" },
         { label: "Notices", href: "/student#notices" },
         { label: "Profile", href: "/student/profile" },
       ]}

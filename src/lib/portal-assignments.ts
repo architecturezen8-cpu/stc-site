@@ -7,6 +7,7 @@ import {
   lmsAssignmentFiles,
   lmsAssignmentGroupMembers,
   lmsAssignmentGroups,
+  lmsAssignmentQuestions,
   lmsAssignments,
   lmsClassSubjects,
   lmsClasses,
@@ -190,13 +191,18 @@ export async function getTeacherAssignmentOptions(
     .groupBy(lmsEnrollments.classId);
   const byClass = new Map(counts.map((c) => [c.classId, c.count]));
 
-  return pairs.map((p) => ({
-    csId: p.csId,
-    classId: p.classId,
-    className: p.className,
-    subjectName: p.subjectName,
-    students: byClass.get(p.classId) ?? 0,
-  }));
+  /* Year-end staleness guard: pairs on classes with no ACTIVE enrollment
+     left (the rollover moved everyone on) are dropped — work posted to an
+     empty old-year class reaches nobody. */
+  return pairs
+    .filter((p) => (byClass.get(p.classId) ?? 0) > 0)
+    .map((p) => ({
+      csId: p.csId,
+      classId: p.classId,
+      className: p.className,
+      subjectName: p.subjectName,
+      students: byClass.get(p.classId) ?? 0,
+    }));
 }
 
 export type TeacherAssignmentItem = {
@@ -1526,6 +1532,93 @@ export async function deactivateAssignment(
     .update(lmsAssignments)
     .set({ isActive: false })
     .where(eq(lmsAssignments.id, owned.id));
+  return { ok: true };
+}
+
+/**
+ * v2.8.61.0 — the owner: "assignment delete option ekak na ne … edit
+ * karanna withari puluwan delete karanna ba". A REAL delete: the work, its
+ * files, every submission + answer file, the Q&A threads and the groups all
+ * go, inside ONE transaction; the storage blobs are reclaimed after the
+ * commit (best-effort, same as the edit path). The tests' hard delete
+ * (deleteAssessment) is the precedent — one honest confirm and it is gone.
+ */
+export async function deleteAssignment(
+  accountId: number,
+  assignmentId: number,
+): Promise<AssignmentMutation> {
+  const teacher = (await ensureLmsPerson("teacher", accountId)) as
+    | typeof lmsTeachers.$inferSelect
+    | null;
+  if (!teacher) return { ok: false, error: "Teacher record missing." };
+
+  const numericId = Number(assignmentId);
+  if (!Number.isInteger(numericId) || numericId <= 0) {
+    return { ok: false, error: "Bad assignment id." };
+  }
+
+  /* Same ownership gate as retire/edit: the work must sit on a class_subject
+     the signed-in teacher owns. */
+  const [owned] = await db
+    .select({ id: lmsAssignments.id })
+    .from(lmsAssignments)
+    .innerJoin(
+      lmsClassSubjects,
+      eq(lmsAssignments.classSubjectId, lmsClassSubjects.id),
+    )
+    .where(
+      and(
+        eq(lmsAssignments.id, numericId),
+        eq(lmsClassSubjects.teacherId, teacher.id),
+      ),
+    )
+    .limit(1);
+  if (!owned) return { ok: false, error: "Not your assignment." };
+
+  /* Collect every blob key BEFORE the transaction so the storage cleanup
+     can run after the rows are gone. */
+  const assignmentFileRows = await db
+    .select({ key: lmsAssignmentFiles.objectKey })
+    .from(lmsAssignmentFiles)
+    .where(eq(lmsAssignmentFiles.assignmentId, numericId));
+  const submissionFileRows = await db
+    .select({ key: lmsSubmissionFiles.objectKey })
+    .from(lmsSubmissionFiles)
+    .where(eq(lmsSubmissionFiles.assignmentId, numericId));
+  const blobKeys = [
+    ...assignmentFileRows.map((r) => r.key),
+    ...submissionFileRows.map((r) => r.key),
+  ];
+
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(lmsAssignmentGroupMembers)
+      .where(eq(lmsAssignmentGroupMembers.assignmentId, numericId));
+    await tx
+      .delete(lmsAssignmentGroups)
+      .where(eq(lmsAssignmentGroups.assignmentId, numericId));
+    await tx
+      .delete(lmsAssignmentQuestions)
+      .where(eq(lmsAssignmentQuestions.assignmentId, numericId));
+    await tx
+      .delete(lmsSubmissionFiles)
+      .where(eq(lmsSubmissionFiles.assignmentId, numericId));
+    await tx
+      .delete(lmsSubmissions)
+      .where(eq(lmsSubmissions.assignmentId, numericId));
+    await tx
+      .delete(lmsAssignmentFiles)
+      .where(eq(lmsAssignmentFiles.assignmentId, numericId));
+    await tx.delete(lmsAssignments).where(eq(lmsAssignments.id, numericId));
+  });
+
+  if (blobKeys.length > 0) {
+    const storage = getStorage();
+    await Promise.allSettled(
+      blobKeys.map((key) => storage.deleteObject(key).catch(() => undefined)),
+    );
+  }
+
   return { ok: true };
 }
 

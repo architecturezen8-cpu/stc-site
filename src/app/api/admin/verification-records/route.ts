@@ -60,15 +60,19 @@ export async function POST(req: Request) {
       const admissionNo = clean(body.admissionNo, 40);
       const fullName = clean(body.fullName, 120);
       const className = clean(body.className, 40);
+      /* v2.8.62.0 — the owner: "godak welawata thawa details danna wenawa"
+         — the register row needs only the essentials; parents/contact are
+         optional and can be added later with Edit. Stored as "" (the
+         columns are NOT NULL), and the register matcher skips blanks. */
       const fatherName = clean(body.fatherName, 120);
       const motherName = clean(body.motherName, 120);
       const registerNo = clean(body.registerNo, 40) || null;
       const phone = clean(body.phone, 30) || null;
       const email = clean(body.email, 180) || null;
 
-      if (!admissionNo || !fullName || !className || !fatherName || !motherName) {
+      if (!admissionNo || !fullName || !className) {
         return NextResponse.json(
-          { error: "Admission number, name, class and both parent names are required." },
+          { error: "Admission number, name and class are required." },
           { status: 400 },
         );
       }

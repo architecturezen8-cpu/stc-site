@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "predev": "bun scripts/boot-heal.mjs",
-    "dev": "NODE_OPTIONS='--max-old-space-size=1536 --expose-gc' next dev -p 3000 2>&1 | tee dev.log",
+    "dev": "NODE_OPTIONS='--max-old-space-size=1024 --expose-gc' next dev -p 3000 2>&1 | tee dev.log",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

@@ -25,6 +25,7 @@ const scrypt = promisify(scryptCb);
      student  → stc_student_session
      teacher  → stc_teacher_session
      parent   → stc_parent_session
+     principal→ stc_principal_session (v2.8.63.0 — the certification role)
      lmsadmin → stc_lmsadmin_session (see lms-admin-auth.ts)
 
    The old shared cookie (`stc_portal_session`) is kept as a READ-ONLY
@@ -35,6 +36,7 @@ const PORTAL_ROLE_COOKIES: Record<LmsPortalRole, string> = {
   student: "stc_student_session",
   teacher: "stc_teacher_session",
   parent: "stc_parent_session",
+  principal: "stc_principal_session",
 };
 
 export function portalCookieName(role: LmsPortalRole): string {
@@ -46,7 +48,7 @@ export const OAUTH_ROLE_COOKIE = "stc_portal_role";
 export const OAUTH_CHOICE_COOKIE = "stc_portal_oauth_choice";
 const SESSION_DAYS = 7;
 
-const PORTAL_ROLES = ["student", "teacher", "parent"] as const;
+const PORTAL_ROLES = ["student", "teacher", "parent", "principal"] as const;
 
 export function isPortalRole(value: string | null | undefined): value is LmsPortalRole {
   return !!value && (PORTAL_ROLES as readonly string[]).includes(value);
@@ -56,12 +58,14 @@ export const PORTAL_HOME: Record<LmsPortalRole, string> = {
   student: "/student",
   teacher: "/teacher",
   parent: "/parent",
+  principal: "/principal",
 };
 
 export const PORTAL_LABEL: Record<LmsPortalRole, string> = {
   student: "Student",
   teacher: "Teacher",
   parent: "Parent",
+  principal: "Principal",
 };
 
 function tokenHash(token: string) {
@@ -166,7 +170,7 @@ export async function getPortalSessionForRequest(
 ): Promise<Awaited<ReturnType<typeof getPortalSession>>> {
   const hint = req.headers.get("x-portal-role");
   if (
-    (hint === "student" || hint === "teacher" || hint === "parent") &&
+    (hint === "student" || hint === "teacher" || hint === "parent" || hint === "principal") &&
     (!allowed || allowed.includes(hint))
   ) {
     return getPortalSession(hint);
@@ -212,6 +216,9 @@ function shapeSession(row: SessionRow) {
   if (!isPortalRole(row.role) || row.status === "pending") return null;
   return { ...row, role: row.role as LmsPortalRole };
 }
+
+/** The resolved portal session shape (any role) — safe to hand to islands. */
+export type PortalSession = NonNullable<Awaited<ReturnType<typeof getPortalSession>>>;
 
 /**
  * The shared session resolver behind getPortalSession (RSC + route
@@ -316,7 +323,7 @@ export async function loginPortalViaSupabase(identity: {
     ),
   );
 
-  const roleOrder: LmsPortalRole[] = ["student", "teacher", "parent"];
+  const roleOrder: LmsPortalRole[] = ["student", "teacher", "parent", "principal"];
   return [...accounts].sort(
     (a, b) =>
       roleOrder.indexOf(a.role as LmsPortalRole) -

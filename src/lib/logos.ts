@@ -378,7 +378,13 @@ export async function getBrandLogoValue(logoKey: string): Promise<BrandLogo> {
   }
 }
 
-export type BrandSurface = "student" | "teacher" | "parent" | "login" | "admin";
+export type BrandSurface =
+  | "student"
+  | "teacher"
+  | "parent"
+  | "principal"
+  | "login"
+  | "admin";
 
 /**
  * The logo for ONE surface: its own `portal-logo-<surface>` entry when set,
