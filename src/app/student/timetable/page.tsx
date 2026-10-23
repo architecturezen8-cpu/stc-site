@@ -58,7 +58,6 @@ export default async function StudentTimetablePage() {
         { label: "Homework", href: "/student/homework" },
         { label: "Chat", href: "/student/chat", badge: chatBadge },
         { label: "Marks", href: "/student#marks" },
-        { label: "Report card", href: "/student/report-card" },
         { label: "Notices", href: "/student#notices" },
         { label: "Profile", href: "/student/profile" },
       ]}

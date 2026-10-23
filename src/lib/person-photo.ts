@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { lmsStudentRecords, lmsTeacherRecords } from "@/db/schema-lms";
-import { getPrivateStorage } from "@/lib/storage";
+import { getStorage } from "@/lib/storage";
 
 /**
  * v2.8.59.0 — PROFILE PHOTOS on the office registers (the owner: "students
@@ -65,7 +65,7 @@ export async function storePersonPhoto(
 
   const key = `lms-people/${kind}-${rowId}-${randomBytes(8).toString("hex")}.${ext}`;
   try {
-    await getPrivateStorage().putObject({
+    await getStorage().putObject({
       key,
       body: bytes,
       contentType: PHOTO_MIME_BY_EXT[ext],
@@ -85,7 +85,7 @@ export function photoUrlFor(kind: PersonPhotoKind, rowId: number): string {
 export async function deletePhotoBlob(key: string | null | undefined) {
   if (!key) return;
   try {
-    await getPrivateStorage().deleteObject(key);
+    await getStorage().deleteObject(key);
   } catch {
     /* storage hiccup must never block the row update */
   }

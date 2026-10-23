@@ -9,7 +9,7 @@ import { ensureSchemaExtras } from "@/lib/schema-extras";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** List portal accounts (Student / Teacher / Parent / Principal) with an optional search. */
+/** List portal accounts (Student / Teacher / Parent) with an optional search. */
 export async function GET(req: Request) {
   const denied = await guardApi("portal", "read");
   if (denied instanceof NextResponse) return denied;
@@ -74,20 +74,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "A valid email address is required." }, { status: 400 });
   }
   /* v2.8.35.0 — the site owner may also invite LMS ADMIN accounts here:
-     role "lms_admin" signs in at the separate /lms-admin studio.
-     v2.8.63.0 — role "principal" joins: the report-card certification
-     portal at /principal. */
-  const INVITABLE_ROLES = ["student", "teacher", "parent", "lms_admin", "principal"] as const;
+     role "lms_admin" signs in at the separate /lms-admin studio. */
+  const INVITABLE_ROLES = ["student", "teacher", "parent", "lms_admin"] as const;
   const roleLabel: Record<string, string> = {
     student: "Student",
     teacher: "Teacher",
     parent: "Parent",
     lms_admin: "LMS Admin",
-    principal: "Principal",
   };
   if (!(INVITABLE_ROLES as readonly string[]).includes(role)) {
     return NextResponse.json(
-      { error: "Choose Student, Teacher, Parent, LMS Admin or Principal." },
+      { error: "Choose Student, Teacher, Parent or LMS Admin." },
       { status: 400 },
     );
   }

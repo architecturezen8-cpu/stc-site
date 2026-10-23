@@ -1,6 +1,5 @@
 import {
   CalendarClock,
-  CalendarRange,
   ClipboardList,
   LayoutDashboard,
   Settings2,
@@ -18,10 +17,6 @@ import {
  * timetables (owner: "godak welawata eyane timetables create karanne") and
  * every write syncs to the students' class grid and the teachers' personal
  * weeks automatically.
- *
- * "Academic year" — the December/January rollover: promote students into
- * the new year's classes, graduate the O/L (grade 11) and A/L (grade 13)
- * leavers and re-assign class teachers in one guided run.
  */
 export const LMS_ADMIN_NAV = [
   {
@@ -47,12 +42,6 @@ export const LMS_ADMIN_NAV = [
     label: "LMS Setup",
     href: "/lms-admin/manage",
     icon: Settings2,
-  },
-  {
-    key: "promotion",
-    label: "Academic year",
-    href: "/lms-admin/promotion",
-    icon: CalendarRange,
   },
   {
     key: "timetable",

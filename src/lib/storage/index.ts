@@ -9,9 +9,7 @@
  * - "local" — filesystem under `.data/media`, served through
  *   `/api/media/file?key=…`; uploads use the multipart proxy endpoint.
  * - "minio" — S3-compatible MinIO (development), presigned PUT uploads.
- * - "r2" — Cloudflare R2 (production), presigned PUT uploads. Backblaze B2
- *   is S3-compatible and rides this same driver + R2_* env block, with
- *   optional PRIVATE-bucket presigned reads (R2_PRIVATE_BUCKET=1, v2.8.66.0).
+ * - "r2" — Cloudflare R2 (production), presigned PUT uploads.
  *
  * NOTE: this module intentionally does NOT import "server-only": it is imported
  * directly by `scripts/verify-storage.ts`, which runs under Bun outside Next.js
@@ -81,34 +79,4 @@ export function getStorage(): MediaStorageInstance {
 /** Drop the cached singleton (used by scripts/tests to re-read the environment). */
 export function resetStorage(): void {
   cached = null;
-}
-
-/* ── v2.8.65.0 — PRIVATE school files vs the public bucket ────────────────
-   When MEDIA_STORAGE_DRIVER is an S3 provider (Backblaze B2 / R2 / MinIO)
-   site images are served straight from it with zero app-server bandwidth
-   (plain bucket URLs on a public bucket, presigned GET URLs on a PRIVATE
-   one — v2.8.66.0; Backblaze needs no credit card for private buckets).
-   Student submissions, people photos and Q&A /
-   chat attachments must NEVER become publicly guessable URLs — they keep
-   living in the database (auth-gated routes) no matter which driver is set. */
-
-/** Key prefixes that hold private school content (never public storage). */
-export const PRIVATE_KEY_PREFIXES = ["lms-work/", "lms-people/", "lms-chat/"] as const;
-
-/** True when an object key belongs to a private, auth-gated file class. */
-export function isPrivateKey(key: string): boolean {
-  return PRIVATE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
-}
-
-let privateCached: DatabaseMediaStorage | null = null;
-
-/**
- * Storage for PRIVATE school files — ALWAYS the database driver, whatever
- * MEDIA_STORAGE_DRIVER says. Upload/serve/delete call sites for
- * lms-work/, lms-people/ and lms-chat/ keys must use this, never
- * {@link getStorage}.
- */
-export function getPrivateStorage(): DatabaseMediaStorage {
-  if (!privateCached) privateCached = new DatabaseMediaStorage();
-  return privateCached;
 }

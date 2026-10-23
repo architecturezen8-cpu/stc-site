@@ -7,7 +7,7 @@
  * reads — it can never escalate, and every authorization check still runs
  * against the resolved account. Client-safe: no server imports here.
  */
-export type PortalRoleHint = "student" | "teacher" | "parent" | "principal";
+export type PortalRoleHint = "student" | "teacher" | "parent";
 
 export function portalRoleHeaders(role: PortalRoleHint): Record<string, string> {
   return { "x-portal-role": role };

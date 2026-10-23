@@ -19,7 +19,7 @@ import {
   lmsSubmissionFiles,
   lmsTeachers,
 } from "@/db/schema-lms";
-import { getPrivateStorage } from "@/lib/storage";
+import { getStorage } from "@/lib/storage";
 import {
   MAX_FILES_PER_GROUP,
   sanitizeFileRefs,
@@ -124,11 +124,7 @@ export async function getTeacherNoticeClassOptions(
     .groupBy(lmsEnrollments.classId);
   const byClass = new Map(counts.map((c) => [c.classId, c.count]));
 
-  /* Year-end staleness guard: classes with no ACTIVE enrollment left (the
-     rollover moved everyone on) are dropped — posting a notice to an empty
-     old-year class reaches nobody. */
   return [...byId.entries()]
-    .filter(([classId]) => (byClass.get(classId) ?? 0) > 0)
     .map(([classId, className]) => ({
       classId,
       className,
@@ -836,7 +832,7 @@ export async function updateMaterial(
             removeRows.map((r) => r.id),
           ),
         );
-      const storage = getPrivateStorage();
+      const storage = getStorage();
       await Promise.allSettled(
         removeRows.map((r) => storage.deleteObject(r.key).catch(() => undefined)),
       );
@@ -896,7 +892,7 @@ export async function deleteMaterial(
   await db.delete(lmsMaterials).where(eq(lmsMaterials.id, materialId));
 
   if (fileRows.length > 0) {
-    const storage = getPrivateStorage();
+    const storage = getStorage();
     await Promise.allSettled(
       fileRows.map((f) => storage.deleteObject(f.key).catch(() => undefined)),
     );
@@ -1149,7 +1145,7 @@ export async function deleteNotice(
   await db.delete(lmsNotices).where(eq(lmsNotices.id, noticeId));
 
   if (fileRows.length > 0) {
-    const storage = getPrivateStorage();
+    const storage = getStorage();
     await Promise.allSettled(
       fileRows.map((f) => storage.deleteObject(f.key).catch(() => undefined)),
     );
@@ -1263,7 +1259,7 @@ export async function updateNotice(
     const keep = new Set(nextFiles.map((f) => f.key));
     const dropped = existing.filter((f) => !keep.has(f.key));
     if (dropped.length > 0) {
-      const storage = getPrivateStorage();
+      const storage = getStorage();
       await Promise.allSettled(
         dropped.map((f) => storage.deleteObject(f.key).catch(() => undefined)),
       );

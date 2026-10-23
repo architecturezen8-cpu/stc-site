@@ -129,14 +129,7 @@ export async function getTeacherMarkableClasses(accountId: number): Promise<Teac
       if (entry) entry.students = c.count;
     }
 
-    /* Year-end staleness guard: after the academic-year rollover a class's
-       ACTIVE roll drops to 0 (everyone moved to the new year's classes) —
-       an empty register has nothing to mark, so hide it instead of letting
-       old-year ghosts pollute the teacher's list. If EVERY class emptied,
-       the empty list is returned as-is; the UI already has empty states. */
-    const live = classes.filter((c) => c.students > 0);
-
-    return live.sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true }));
+    return classes.sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true }));
   } catch {
     return [];
   }

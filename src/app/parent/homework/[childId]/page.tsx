@@ -51,7 +51,6 @@ export default async function ParentChildHomeworkPage({
         { label: "Children", href: "/parent#children" },
         { label: "Homework", href: "/parent/homework", active: true },
         { label: "Marks", href: "/parent/marks" },
-        { label: "Report card", href: "/parent/report-card" },
         { label: "Notices", href: "/parent#notices" },
         { label: "Profile", href: "/parent/profile" },
       ]}

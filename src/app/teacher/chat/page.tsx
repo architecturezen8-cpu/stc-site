@@ -40,7 +40,6 @@ export default async function TeacherChatPage() {
         { label: "Assignments", href: "/teacher/assignments" },
         { label: "Chat", href: "/teacher/chat", active: true, badge },
         { label: "Marks", href: "/teacher/marks" },
-        { label: "Report card", href: "/teacher/report-card" },
         { label: "Materials", href: "/teacher/materials" },
         { label: "Notices", href: "/teacher/notices" },
         { label: "Timetable", href: "/teacher/timetable" },

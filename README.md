@@ -1,130 +1,1378 @@
-# St. Thomas' College, Matale — School Website, Admin Studio & LMS
+# St. Thomas' College, Matale — Website & Admin Platform
 
-The complete digital platform for St. Thomas' College, Matale: a cinematic public website, a phone-friendly **Admin Studio** for the school office, a dedicated **LMS Admin** studio, and invite-only **Student / Teacher / Parent portals** — timetables, attendance, homework with real file hand-ins, marks with grade letters, chat, notices, materials, **digital terminal report cards** and a one-click **academic-year rollover**.
+A production-focused school website and mobile-first visual content management platform built with Next.js App Router, React, Drizzle ORM and PostgreSQL.
 
-> **Current build: v2.8.66.3** — this README is updated at EVERY release (the owner's rule: "readme eka update karana eka off karada" — it was never off; the detailed changelog lived in README-NEW.md while this file froze at v2.8.16. Both files now carry the full version history, updated together every release).
-
-## Documentation
-
-| File | What it holds |
-| --- | --- |
-| **README.md** (this file) | Platform overview + the full version history |
-| **README-NEW.md** | Detailed system documentation: site map, admin systems, LMS phase history, disaster recovery runbook, environment variables, ops scripts |
-
-## Tech Stack
-
-| Layer | Choice |
-| --- | --- |
-| Framework | Next.js 16 (App Router), React 19, TypeScript 5 |
-| Styling / UI | Tailwind CSS 4, shadcn/ui conventions, lucide-react icons |
-| ORM | Drizzle ORM — schema at `src/db/schema.ts` + `src/db/schema-lms.ts`; runtime DDL in `src/lib/schema-extras.ts` |
-| Database | Supabase PostgreSQL (live) — embedded PGlite kept as rollback source |
-| Media storage | Provider-neutral: local filesystem (default), MinIO / Cloudflare R2 ready |
-| Image processing | Sharp — WebP variants, EXIF/GPS stripping, dedupe |
-| Auth | Admin Studio: server sessions + 8-role permission matrix. Portals: invite-style registration verified against the office registers, Google OAuth (Supabase PKCE) + scrypt passwords, per-role session cookies |
-| Runtime | Bun (dev + scripts), `next dev -p 3000` |
-
-## Quick Start
-
-```bash
-bun install
-cp .env.example .env        # placeholders only — no secrets in Git
-bun run db:push             # provisions the DB from generated migrations
-bun run dev                 # http://localhost:3000
-```
-
-- First admin: `/admin/setup` (appears when no admin exists).
-- LMS office studio: `/lms-admin` (login + registrations, registers, classes, timetable, **Academic year** rollover).
-- Portals: `/student`, `/teacher`, `/parent` (sign in via `/login` or `/register`).
-- Full reset (local PGlite only): `bun run db:reset`.
-
-## What's Inside
-
-- **Public site** — home, history, vision & mission, principal's message, staff, O/L & A/L sections, exam results, achievements, clubs & societies, sports, cadeting, news & events, gallery, admissions, contact, live channel, online resources.
-- **Admin Studio (`/admin`)** — visual page editor, news/events/gallery/staff/form managers, media library + picker pipeline, logos & crests registry (School & Portals), online resources, footer, theme (browser-tab icon, portal crest, preloader, popups), live channel, role management.
-- **LMS Admin (`/lms-admin`)** — registration approvals, office registers (students/staff + photos), classes/subjects/teaching/enrollment setup, timetable builder, **academic-year promotion wizard**, settings.
-- **Portals** — dashboards with progress rings and honest badges; attendance register + history; homework with attachments and group work (Option B); marks registers with A/B/C/S/W grade bands; Q&A chat with the WhatsApp tick ladder; notices with links/images/PDF; materials; timetable editor; **digital terminal report card** (class teacher edits the exact school paper structure — Subjects × First Test / Mid Year Test / Year End Test, totals, averages, first-in-class average, class size, position, attendance, per-term Special Remarks and signature lines; students and parents read the published sheet, print-ready).
-- **Safety nets** — maintenance curtain that obeys the switch live in both directions, boot-time env self-heal, off-site backup mirror, versioned worklog discipline.
-
-## Version History Highlights
+> **Current build: v2.8.66.4** — this README is updated at EVERY release (the owner's rule: "readme eka update karana eka off karada" — it was never off; the detailed changelog lived in README-NEW.md while this file froze at v2.8.16. Both files now carry the full version history, updated together every release).
+>
+> *2026-10-23: a sandbox workspace rollback wiped the working tree; the 66.x rows below were reconstructed from the live sessions (worklog Task 12).*
 
 | Version | Highlights |
 | --- | --- |
-| 2.8.59.0 | **THE OWNER'S SEVEN-FIX ROUND** (grid alignment, smooth charts, class dropdowns, profile photos, notice attachments, portal logo, maintenance live-off): **① Grid alignment** — the student dashboard's Homework ‖ Recent Marks row now stretches BOTH cards to equal height (h-full chain through Panel `className="flex h-full flex-col"`), the marks rows fill their card and a "Term average N% across the latest N · N% average" PanelFooter closes the bottom edge — the floating gap under the row is gone. **② Smooth charts** — the PerformanceChart is redrawn: the line is now a MONOTONE CUBIC (Fritsch–Carlson) spline that can never kink or overshoot (the old quadratic midpoint chain wobbled exactly at column edges), every stroke carries `vector-effect="non-scaling-stroke"` (the stretched-viewBox fat/thin distortion is gone), a gradient area fades in under the gold curve (`pt-chart-area` CSS), bars get rounded tops and the highlight dot gains a panel-coloured ring — student + teacher dashboards both (the LMS-admin chart stays as-is, the owner said it's fine). **③ Class dropdowns** (the owner: "class eka type karanna denne nathuwa selection list ekak demuda … account ekka create karana than walath ehema karamu ne") — the Verification Records Add/Edit dialogs' Class field is a `<select>` fed by the live class master + the register's own distinct names (57 options, naturally sorted 6-A→), and the PUBLIC registration form's Class + Child's-class fields became dropdowns from the new public `GET /api/portal/register-classes` (register ∪ classes), with the text input kept as a no-dead-end fallback. **④ Profile photos** (the owner: "studentslatai + lms-admintai … teacherslage profile walatath teachertai lms-admintai images danna option ekak") — photos hang on the OFFICE REGISTER rows (`lms_student_records/lms_teacher_records.photo_key/photo_url`, idempotent DDL), so they exist before an account does and follow every admission-no/staff-code join; `POST /api/admin/verification-records/photo` (office, camera button per register row with initials/photo avatar) and `POST /api/portal/profile/photo` (self-service camera badge on the student/teacher profile card) both store JPG/PNG/WebP ≤3 MB under `lms-people/` and delete the replaced blob; the ONLY byte door is the session-gated `GET /api/portal/person-photo/[kind]/[id]` (any portal session, lms-admin or main admin; anon 404); the teacher's roster wall now shows the REAL photo (ChildCard avatarSrc) and the profile card renders the photo with the camera badge. **⑤ Notice attachments** (the owner: "notice daddi links, images, pdf danna option ekath danna wei ne") — `lms_notices.link_url` + the new `lms_notice_files` table; the composer and the edit form gain the SAME LinkField + AttachmentUploader the assignments use (uploads ride the shared teacher endpoint, pinned server-side with all-or-nothing validation — a bad link or file list rejects the whole notice), the board + all three dashboards render LinkRow + file chips under every notice, delete/update reclaim dropped blobs, and files open ONLY through the audience-checked `GET /api/portal/notices/[id]/file/[fileId]` (enrolled student / parent of an enrolled child / the class's teachers or the poster / nobody else — fileId double-checked against the notice id). **⑥ Portal logo** (the owner: "portal wala uda school logo eka … main admin eke settings walata danna wei. danata thiyenne white circal eke STC text ekak withara") — PortalShell fetches the published `/api/site-settings` on mount and swaps the white STC disc for the school crest (Crest logoSrc) in BOTH the header and the drawer, reading the SAME synced logo registry the Settings form's College-crest field (now labelled to say it feeds the portals) already edits — one upload updates the website, every portal header AND the maintenance screen. **⑦ Maintenance live-off** (the owner: "admin maintenance mode eka off karama user page eka reload karath maintenance page ekema ne inne") — the middleware now stamps the ORIGINAL destination on the redirect (`/maintenance?from=…`), a new tiny island on the maintenance screen polls the public `GET /api/maintenance-status` (the ONE API exempt from the curtain) every 5 s, and the moment an admin flips OFF the visitor's tab NAVIGATES itself back to ?from= (open-redirect-safe) — browser-proven: a parked tab on the curtain returned to the live homepage within 10 s of the flip, no URL re-entry, no manual refresh. QA: **21/22 API matrix** (`scripts/qa-59.mjs` — maintenance-status public 200, curtain-up redirect + curtain-down open, register-classes lists the QA class, javascript: link 400, notice+link+file 201 → board lists both → student opens PNG bytes 200 → anon 401 → bogus fileId 404 → PATCH link, office photo 201 → row DB-proven → anon 404 → student session 200 PNG → teacher photo 201 → self-upload 201 with old blob replaced; the one "fail" was a miscounted assertion, fixed — 2 live blobs = student + teacher) + agent-browser E2E (curtain lift live, class dropdowns 57 options on BOTH the studio dialog and the public form, student dashboard equal-height cards + footer + smooth gradient chart + notice chips + link chip verified in DOM and screenshot, profile camera badge → real file upload → avatar swaps after refresh → the SAME photo shows on the office register row with its camera badge; 0 console errors; QA fixtures purged). NOTE: the sandbox OOM-killed the dev server ~8 times during QA (owner's live tabs + compile bursts on 4 GB) — every revival with the double-fork one-liner; eslint 0 problems; APP_VERSION 2.8.58.0 → 2.8.59.0 |
-| 2.8.60.0 | **THE LOGO SYSTEM, REBUILT — ONE REGISTRY, EVERY SURFACE + THE MAINTENANCE CURTAIN THAT OBEYS THE SWITCH** (the owner's six-bug round on the crest feature). **① Login crest** — /login, /login/choose and /register now draw the synced brand logo (their own `portal-logo-login` registry entry, College Crest fallback) with the white-circle fill scale applied — they were still hardcoded to the STC initials. **② ONE logo place** (the owner: "logo & crest section eken site eke, student,parent,teachers,login portals walata … logo danna puluwan wenna damu. ekenma admin ekata sync wena ekath damu") — the central registry grows a BRAND group: College Crest (whole site) + Student/Teacher/Parent/Login/Admin-Studio logos, each with its own scale, each surface falling back to the College Crest; brand saves go LIVE in ONE step ("Save & go live" — no draft trap); the USELESS "College crest (synced by ID)" field in Settings and the duplicate Footer-crest field are REMOVED (they replayed stale values over the registry — the "okkoma corrupt" loop is dead: the settings PATCH now ignores schoolLogo on purpose); the Admin Studio emblem (sidebar, dashboard, login, request-access) and the LMS-Admin Studio tile + sign-in card read the SYNCED admin logo; the falcon section in Settings is now purely the BROWSER TAB ICON (favicon via generateMetadata + a mini browser-tab preview). **③ White-circle scale** — the registry scale now travels server-side through PortalBrandProvider into EVERY portal Crest (header + drawer) and the login crests: "white circal eke size eka adjest" finally works on student/teacher/parent portals. **④ Maintenance curtain obeys the switch** — the /maintenance page now checks the switch SERVER-SIDE and instantly redirects to ?from= (or /) when the curtain is down (reload-while-off is fixed with zero JavaScript), while a new MaintenanceWatch island in the root layout polls the public heartbeat every 10 s so ALREADY-OPEN tabs walk themselves behind the curtain the moment it goes up (admin studios keep their preview). **⑤ No stale logos + honest fallbacks** — every served logo URL carries a `?v=<updatedAt>` freshness stamp (the media byte route is 1-year immutable; a replaced blob now re-fetches), and the navbar, footer, portal shell and admin emblem all degrade to their initials/golden discs on image error instead of an empty circle. **⑥ Draft/publish trap killed on identity surfaces** — the Settings form saves-and-publishes in one click (identity settings are live the moment they save). eslint 0 problems; src tsc clean; APP_VERSION 2.8.59.1 → 2.8.60.0 |
-| 2.8.61.0 | **THE OWNER'S PORTAL-COMPLETION ROUND** (navbar crest flash + real deletes + static icons wired). **① No more golden-S flash** — the owner: "site eka reload karama nave bar eke logo eke golden circal eke black S letter eka penila logo eka show wenne" — the navbar/footer used to paint the placeholder disc first and fetch the crest client-side; the ROOT LAYOUT now resolves the crest server-side (getSchoolCrestValue + stampLogoUrl) and delivers it through a new SiteBrandProvider context, so the real crest is inside the first HTML byte on EVERY public page (navbar desktop + mobile drawer + footer share it, onError fallbacks stay); the login page keeps its own server-side crest. **② Assignments get a REAL delete** (the owner: "assignment delete option ekak na ne … edit karanna withari puluwan delete karanna ba") — DELETE /api/portal/assignments/[id] (teacher-scoped, ownership-gated) hard-deletes the work + its files + every submission + answer files + the Q&A threads + groups + group members in ONE drizzle transaction and reclaims the storage blobs; the big register modal grows a danger "Delete this work" button beside Edit with an honest confirm ("Delete \"X\" with N submissions and N files? Its grades and Q&A threads go too"); **tests delete from the LIST too** (the register's delete button hid below the fold — each assessment row now carries its own trash button with the same confirm; the row became a div+button pair so the delete never nests inside the open-register button). **③ Static icons wired** — the owner: "gidwala samahara icon thiyanawa ewage wadak ganne na" — the decorative Search/Filter/More circle buttons on every dashboard panel header are GONE (they did nothing; the "Weekly" chip is now a passive "Weekly view" label without the fake chevron); the student's My-Subjects tiles are REAL links → /student/homework?subject=<name> (the homework page grew a server-side subject filter + a one-tap clear chip); the Subjects stat cards on student/teacher dashboards and the Avg Attendance/Avg Marks cards on parent link to their sections; Today's-lessons period chips jump to #timetable; the teacher's Today's Lessons panel gained the "Open the full week" footer link (mirrors the student's); the parent Support row is a REAL tel: link ("Tap to call +94 66 222 0173"); all widget anchors migrated to next/link (SPA navigation, no full reloads). QA: scripts/qa-61.mjs 26/26 (SSR crest in HTML + zero S-discs, assignment delete guards 401/400 + cascade proof on submissions/Q&A/groups/members, subject filter incl. wrong-subject honest empty state, assessment delete + marks cascade) + agent-browser E2E (crest img loaded naturalWidth 2560 in first paint, student login → subject tile → filtered homework page with clear chip, teacher register modal → Delete this work → confirm → modal closes + list empties + DB row gone, marks list-row trash → confirm → DB 0; 0 console errors). eslint 0; src tsc clean |
-| 2.8.59.1 | **OOM GUARD + THE PORTAL-LOGO RESCUE**: the "memory leak" diagnosed and the logo it silently erased, both fixed. **Why the dev server kept dying** — dmesg-proven OOM kills (next-server anon-rss 2.8–3.2 GB on the 4 GB cgroup): Turbopack's dev engine holds every compiled module of this ~100-route app and V8 only collects under pressure. **The four-layer guard** — ① `experimental.turbopackMemoryLimit` (1.5 GiB, bytes) makes the engine collect as it approaches the ceiling; ② the `dev` script now carries `NODE_OPTIONS='--max-old-space-size=1536 --expose-gc'` on EVERY restart (the cap follows the child next-server process — V8 works harder before the killer visits); ③ a GC governor (`src/instrumentation.ts` → node-only `instrumentation-node.ts`, Edge-clean) full-collects when the live heap tops 700 MB; ④ **the dev-server WATCHDOG** (`scripts/dev-watchdog.mjs`, runs detached) pings /api/health every 30 s and restarts with the proven double-fork one-liner after 3 failures — a death is now a ≤90 s self-healed hiccup, browser-proven live (server OOM-died mid-session → watchdog restarted it → healthy again, twice). ⑤ hygiene: the access-requests throttle map prunes + caps itself. **The Fix-⑥ rescue** — the crest the owner set was WIPED from the logo registry by a Logos-manager save with an empty URL box (audit: save_logo_draft publish:true, src→"", scale 70→40), which is WHY the portals still showed the STC disc; crest restored from its surviving blob, and the wipe is now impossible: a save that carries a scale keeps the existing image when the URL box is empty (server guard in `upsertLogoAsset`), only the explicit Remove button may blank it, and the manager's toast says honestly when the URL box was empty. **Plus fix ⑥ hardened** — the crest now arrives SERVER-SIDE through new portal root layouts (`student/` `teacher/` `parent/` layout.tsx → PortalBrandProvider context) so it paints with the first payload instead of a post-mount fetch (the client fetch stays as fallback). Browser-verified: crest in the portal header (background-image set, initials hidden), 0 console errors. eslint 0; APP_VERSION 2.8.59.0 → 2.8.59.1 |
-| 2.8.57.0 | **PHASE 4.1 — GROUP ASSIGNMENTS (Option B, the owner's approved design)**: teacher-created teams, ONE submission per group, grades per team with optional per-student adjustments. **Two small tables + one column** (`lms_assignment_groups`, `lms_assignment_group_members` with the DB-level one-group-per-student unique index, `lms_submissions.group_id` + the partial unique (assignment, group) index) — group mode is DERIVED (an assignment is group work exactly when it has groups), so there is no mode flag to keep in step. **The teacher's register grows a group pen**: a "Set up groups" door on the classic panel flips it to the team register — one grade row per team (score with the live A/B/C/S/W chip + team feedback + "Graded · A" status) with the members' FINAL marks on chips ("→ 70 B (−15)"), per-student ± adjustment inputs that unlock once the group is graded, and the structure manager (create/rename/delete groups, add/remove members from the ungrouped roster) that LOCKS the moment a team submits — the same "roster pinned" honesty the edit rules already had. **Students**: any member submits/edits the team's ONE answer (the row is the group's, not the individual index; graded = locked for everyone); the work page carries the "Group work — Team Alpha" chip, the full member list, the hero "85 / 100 + Grade A" and an honest "Group 85 · your adjustment −15" note; the homework list + dashboard urgent slice read the TEAM's status so a non-uploading member is never "pending". **Parents** mirror everything read-only (group name, final mark, adjustment note). **The file door** admits the whole team: group members read the group's submission files whoever uploaded them (gate proven: member → storage miss 404, outsider → 403). The teacher dashboard's Marking Queue names the TEAM ("Team Alpha (QA Student A)"). QA: **40/40 API matrix** (`scripts/qa-57.mjs` — anon/student/forged 401, foreign assignment 400, one-group-per-student + non-enrolled member 400, rename, ungrouped student cannot submit, A submits → exactly ONE group row, teammate C re-submits the SAME row with the author kept, structure locks after submit, the individual grade pen refuses group work, ceiling + outsider-adjustment 400s, adjustments stored +5/−10, student pages show final 77 (A) and 62 (C), graded lock, detail payload carries groups with final marks) + agent-browser E2E on real sessions (teacher creates Team Alpha in the manager via UI, adds members via the select, student A submits the team answer, teacher types 85 → live A chip → save → "Graded · A" + "→ 85 A" chips, C's −15 lands "→ 70 B", student hero "85 / 100 + Grade A" + feedback + locked, mobile 390px zero overflow on BOTH panels — which caught and FIXED a pre-existing min-content overflow in the register headers (flex-wrap) plus the assign-list header); fixtures purged (accounts/groups/members/group-subs = 0, curtain restored); eslint 0 problems, tsc src/ 0 errors; APP_VERSION 2.8.56.0 → 2.8.57.0 |
-| 2.8.58.0 | **PHASE 5.1 + 5.2 — DASHBOARD REFRESH + THE OWNER'S TWO REGISTER NOTES**: **Student** — progress rings on the three rate cards (attendance / average mark / homework done; tone shifts green ≥75, warn <35), the "Today" period strip (sideways chips, links to the full week), earned badges (Attendance Star ≥95%, A Average ≥75%, Homework Hero 100% — only when earned, nothing fake), My Subjects as a glyph card wall (`Sigma/Flask/Languages/…` keyword map), and the celebration banner when EVERY visible piece of work is handed in (pure-CSS sparkle dots, no libraries). **Teacher** — four quick-action cards (attendance / assignment / notice / marks), the same today strip, and the honest MarkingCounter strip ("N submissions to grade" in warn tint / "Marking all caught up" in good tint) replacing the duplicate To-Grade stat card (Lessons Today takes its place). **Register modal** — clicking an assignment now opens a BIG centred modal (max-w-4xl, 92vh, bottom-sheet on phones) with the work's identity in the sticky header (class · subject · title · due · counts), the full register body scrollable inside, Escape + backdrop + X close, body scroll lock; the side-column register is gone and the assignment list is a full-width card grid. **Batch group members** — the one-at-a-time select is now a checkbox multi-pick with Select all; one "Add N students" POSTs `studentIds[]` and the server validates the WHOLE batch before writing (all-or-nothing: mixed batches add nothing, error names the problem); QA caught the old `studentId` guard rejecting batches — fixed. QA: **19/19 API matrix** (`scripts/qa-58.mjs`: batch [A,B] → 2 members, re-add dup 400, mixed [B,C] 400 + C NOT half-added, [C,D] → 4 members, non-enrolled 400, empty 400, anon 401, student 401) + agent-browser E2E (deep-link ?focus=48 opens the modal, group door → Team Alpha → "Add members" picker → tick C+D → button reads "Add 2 students" → one click → "Team Alpha 4 members", Escape closes; student submits for the team → homework ring 100% + "Homework Hero" badge + celebration banner; 390px overflow = 0 on the open modal + both dashboards; 0 console errors; fixtures purged, curtain restored). NOTE: the dev server OOM-died repeatedly under the owner's live tab burst + compile load (sandbox 4 GB) — revived each time with the double-fork one-liner. eslint 0 problems, tsc src/ 0 errors; APP_VERSION 2.8.57.0 → 2.8.58.0 |
-| 2.8.56.0 | **PHASE 3.2 — GRADE LETTERS A/B/C/S/W BESIDE EVERY MARK** (the owner's approved roadmap): the Sri Lankan bands **A = 75+, B = 65–74, C = 55–64, S = 35–54, W < 35** now appear wherever a mark does — computed by ONE client-safe helper, `src/lib/grades-shared.ts` (`gradeForPct` / `gradeForScore` / `pctForScore` + `gradeChipClass` colour chips A green · B–C amber · S–W red + the `GRADE_LEGEND` line), so no page can drift into its own bands. **Assignments get a real scale**: new `lms_assignments.max_score` (idempotent DDL, every legacy row = 100) — `gradeSubmission` now validates 0–maxScore of THAT assignment (the old blanket 0–1000 is only the sanity cap), and the teacher detail + student list payloads carry `maxScore`. **Teacher marks register** (`/teacher/marks`): every row's chip becomes the LIVE letter (recolors as you type — 82→A, 58→C, 30→W, 75→A all verified), the header grows the legend, the assessment list chip reads "avg 82% · A". **Homework grading** (`/teacher/assignments`): the score input shows its ceiling ("/ 100") with a live letter chip beside it, graded rows read "Graded · A", the panel header carries "Marks out of 100 · Grades: A 75+ …". **Students** see "Score 85/100 · A" on the homework list, a hero "85 / 100 + Grade A" pill on the work page, and letter chips in the dashboard Recent Marks. **Parents**: the marks sheet rows read "A · 82%", term averages "avg 78% · B", the overall stat gets its letter chip, homework mirrors show "85/100 · A", and the dashboard average reads "Average mark 76% · Grade B". QA: agent-browser E2E on real sessions (register live chips through every band boundary 30/58/75/82, save → "Register saved — 1 marks recorded.", homework loop type 85 → live A → save → DB proven {score 85, max_score 100} → "Graded · A" chip → student list "Score 85/100 + A" → detail hero "Grade A + locked" → dashboard "82/100 + A"; 390px zero overflow on both pages; 0 console errors); fixtures purged (accounts/sessions/assessments/assignments = 0, 17 assignments all max_score=100, curtain restored); eslint 0 problems, tsc src/ 0 errors; APP_VERSION 2.8.55.0 → 2.8.56.0 |
-| 2.8.55.0 | **PHASE 3.1 ROUND 2 — the owner's seven timetable/homework notes**: ① the student timetable page gains the same spinning refresh icon as the teacher's (a tiny `router.refresh()` island — one tap lands the office's latest edits). ② **Custom periods**: the editor's subject picker grows "Custom activity…" — a free-text period with NO subject (outside activities, assemblies, sports) stored in the new `lms_timetable_slots.custom_label` column (idempotent DDL, subject_id stays NULL; blank label + no subject = clear, subject save wipes the label, >60 chars sliced). ③ **LMS Admin Studio → Timetable** (`/lms-admin/timetable` + guarded `GET/POST /api/admin/lms/timetable` via `guardPortalOrLmsAdmin`): the studio holds the MASTER pen — all 54 register classes editable through the SAME editor island, now parametrized by endpoint + role hint (portal cookie vs studio cookie can never cross doors; teacher/student cookies 401 on the admin API). ④ **My Teaching Timetable** on `/teacher/timetable`: the teacher's personal week DERIVED from every slot where they are the named teacher (label + gold class context + room), re-computed on every load — the office's assignments land there with zero extra work ("eka hadanneth lms admin ne"). ⑤ **Student homework gets its own page** (`/student/homework`): the full grid with Pending/Submitted/Graded chips, no dashboard squeeze; the dashboard keeps ONLY the urgent slice (pending + overdue or due ≤72h, cap 4, module-level clock helper for the React purity rule) + an "Open all homework (N)" link; every student nav/CTA now points at the dedicated page. ⑥ **Side panel auto-hide**: every side-nav click closes the drawer immediately — page links already did (pathname effect), same-page anchors (#calendar, #homework) never changed the pathname and used to leave the panel covering the section it just scrolled to. ⑦ **Relief/teacher↔student sync**: one source of truth — assigning a teacher (or relief cover) to any period updates the class's student grid, that teacher's personal week AND both dashboards from the same `lms_timetable_slots` rows; custom (subject-less) periods surface on the student page, teacher personal week and both "Today's lessons" dashboards. QA: **45/45 API matrix** (`scripts/qa-55.mjs` — anon 401 ×2 on the admin API, portal cookies 401 on the studio door, studio week payload + guards, custom row DB-proven {subject NULL + label + teacher + room}, label slicing/clear/wipe semantics, unlinked teacher 403, teach-path custom 200, admin-assigns → teacher SSR shows "3 lessons of yours" + "Outside Activity" + "6-B" contexts, student SSR shows refresh hint + 6-A grid + My Homework + Due Soon + Open-all, studio page 200 + teacher bounce) — caught and FIXED one real bug: the portal timetable route dropped `customLabel` on writes; + agent-browser E2E (teacher: My Teaching Timetable renders 3 derived lessons, 6-B editable grid 40 buttons, Custom activity → "Sports Practice" → "Friday · Period 1 saved" + cell + chip 2 lessons; student: refresh button click keeps the grid, "Open all homework" → /student/homework with My Homework panel, drawer auto-hide on BOTH page links and the #calendar anchor (hidden + landed at 96px under the header), custom periods visible on the student class grid; studio: Timetable nav pill + 54-class master picker + Monday P8 Mathematics save 22→23 lessons; zero console errors; 390px overflow=false on 4 pages); QA fixtures purged (accounts/sessions/persons/slots = 0, total rows = 100, customs = 0), curtain restored; dev.log clean (200s only); eslint 0 problems, tsc src/ 0 errors; APP_VERSION 2.8.54.0 → 2.8.55.0 |
-| 2.8.54.0 | **PHASE 3.1 — THE TIMETABLE EDITOR (owner go: "phase 3.1 ekata yn")**: the `lms_timetable_slots` table (100 pre-seeded rows: classes 6-A/9-C/10-A/11-B/12-S-1 × Mon–Fri × periods 1–4) finally gets its write UI. **The ownership pen** (the recorded contract: "LMS Admin edits all classes, class-teachers edit their own (server-checked)") — every signed-in teacher BROWSES any class week, but only classes they TEACH (`lms_class_subjects`) or LEAD (`class_teacher_id`) accept writes, enforced in `writeTimetableSlot` on EVERY call (existence 404 → ownership 403 → field validation 400); the class picker marks editable classes and non-editable ones render a calm browse-only note with static cells. **The editor** (`/teacher/timetable`): classes in numeric grade order (grade is TEXT — "10" sorted before "6", now sorted 6→13 in JS), the week grid (Mon–Fri columns × periods 1–8 rows, the ONE shared `TimetableGridView` renderer) with the teacher's own lessons ringed gold, tap a cell → the editor strip fills in below (subject from the class's `class_subjects`, teacher pre-picked from the office assignment, optional room sliced to 60) — Save upserts, Clear (on filled cells) deletes the row so the cell becomes a free period; new `lms_timetable_slot_unique` index (class, day, period) makes duplicate lessons impossible at the DB level and powers the ON CONFLICT upsert. **The student view** (`/student/timetable`): their own class's full week, read-only SSR straight from the register (zero client fetches), today's column tinted with a "Today" chip, lesson counts in the hero; the dashboard's Today's Timetable panel gains an "Open the full week" link and every portal page's Timetable nav now points at the dedicated pages. All writes through the teacher-only `GET/POST /api/portal/timetable` with the `x-portal-role` hint. QA: **42/42 API matrix** (anon 401, student/parent 403, forged role hint 401, unlinked teacher write 403 with the contract message, LEAD-path write 200 + TEACH-path write 200 on 6-B, day 0/6 + period 0/9 + unknown class/subject/teacher all 4xx, upsert re-save = still ONE row, 100-char room sliced to 60, clear = row gone, seeded grid untouched at exactly 100 rows) + agent-browser E2E on real sessions (browse-only note + static cells on a non-editable class, editable grid on the led class, tap→subject→save→cell updates→DB verified→clear→cell free→DB empty, student sees the teacher's new lesson instantly (21 lessons) with the today column highlighted, mobile 390px zero page overflow with the grid scrolling inside its wrapper); QA fixtures purged (leftovers 0, slots=100, 6-B restored), curtain restored; APP_VERSION 2.8.53.1 → 2.8.54.0 |
-| 2.8.53.1 | **PATCH ROUND — lint clean + the type error (the owner's "phase 3.1 ekata yan kalin patches hodata wada")**: the whole-repo ESLint run reported 20 errors + 1 warning across the Admin Studio / CMS editors and public-site components; every one is now fixed PROPERLY (no blanket disables — each file's real pattern corrected). **Declaration-order fixes** — `choose` (live-site-editor), `pick` (visual-editor) and `closePopup` (department-cards) moved ABOVE the effects that close over them (same closures, honest order). **Refs during render** — visual-editor's `dirtyRef` now syncs in a `[dirty]` effect; universal-visual-editor's stale hover-outline cleanup moved from render into a `[leftEditor]` effect, and `selectFromNavigator` outlines the LIVE node re-resolved via `document.querySelector(item.selector)` (the same selector contract applyPatch already trusts) instead of mutating the React-state object. **JSX out of the try/catch** — VisualBlockSections (server component) now awaits `getVisualBlocks` in the try (parse/DB failures still render nothing) and builds the component tree OUTSIDE it (a try/catch could never catch render errors anyway). **Effect setState reshapes** — site-preloader's skip-vs-play decision resolves in a 0 ms timeout callback (same decision, boot curtain covers the gap); cine-overlay's client-only portal flip now uses `useSyncExternalStore` (server false → client true, no cascading effect); media-library's view-switch spinner fires via the render-time derived-state pattern with the fetch continuation in the effect; media-picker's open-transition reset (query/folder/spinner) does the same, with `load` (now await-first) kept for event handlers and the refresh/upload paths setting the spinner themselves; visual-blocks-panel's mount load is an inline fetch continuation. **Hygiene** — `examples/**` (reference demo code, not shipped) added to eslint's globalIgnores, contact's apostrophe escaped, and the admin-only `<img>` preview keeps its justification comment. **BONUS CATCH**: `tsc --noEmit` found ONE real type error left from v2.8.53.0 — the multipart branch of `POST /api/portal/assignments/[id]/questions` passed the WIDE session object (role: `LmsPortalRole`) where the narrowed `{role: student\|teacher}` was required; the POST now materializes the narrowed `actor` after the parent/role guard (runtime behavior unchanged — the guard already rejected parent — but the contract is now type-honest). QA: ESLint 0 problems (was 20+1), `tsc --noEmit` src/ 0 errors; agent-browser live sweep with the curtain lifted — home preloader plays and exits cleanly (no stuck scroll-lock), home + contact render with zero console errors, contact shows the escaped "St. Thomas' College, Matale" text, no horizontal overflow, admin login 200; curtain restored (enabled=true verified) and the temp toggle script removed; APP_VERSION 2.8.53.0 → 2.8.53.1 |
-| 2.8.53.0 | **CHAT FILE ATTACHMENTS + THE SLIM PORTAL HEADER + PHASE 2.2 — THE PORTAL CALENDAR** (the owner's three-in-one round: "chat section eka supiriyata hadala whatsapp eke clone ekak wage… files attach karanna bari eka witharai" + the teacher-header screenshot + "phrase 2.2 ekath ohommama karamu"). **① Chat attachments** — the WhatsApp clone got its paperclip: ONE optional file per message (the caption may be empty when it rides — WhatsApp style) through a new multipart send path (`POST /api/portal/assignments/[id]/questions` accepts BOTH the original JSON text-only body AND multipart `body`+`studentId`+`file`); the size guard runs before the bytes are buffered (≤5 MB), the extension comes from the ONE shared allow-list (`src/lib/file-types.ts`, extracted from the assignment uploader — photos, PDFs, documents, sheets, media, archives), and the MIME is ALWAYS re-derived from the server's own table, never trusted from the client; bytes live under the `lms-chat/` prefix through the SAME provider-neutral storage layer as every LMS file (free-tier safe — a 5 MB cap means chat can never threaten the 500 MB region DB), and the ONLY door to them is the permission-checked `GET /api/portal/chat/file/[messageId]` (owner student with active enrollment, the owning teacher — everyone else 401/403/404 with no existence leak); thread payloads carry `{name,mime,size}` and NEVER the storage key; images render inline (tap → full view), every other type a file card with size + download; the author's delete now also RECLAIMS the blob and clears the file columns (the stub can never serve bytes); hub previews show 📎 + file name for file-only messages. A shared `ChatComposer` island now powers ALL THREE send surfaces (homework card, hub conversation, teacher register reply) with instant pre-upload validation (wrong type / oversized never leave the browser). **② The slim portal header** — the teacher portal's 11-item desktop pill strip (the owner's screenshot: "uda sections walata yanna thiyana ewa wadi nisa width eka madi… side panel eke thiyanawa okkoma navigations tika") is now a QUICK-ACCESS subset per role (teacher: Dashboard · Assignments · Chat · Profile; student: Dashboard · Homework · Chat · Profile; parent: Dashboard · Homework · Marks · Profile) while the side-panel drawer keeps EVERY item; the sliding gold pill hides honestly when the current page isn't in the subset (e.g. the teacher's Marks page) and the drawer carries the highlight. **③ Phase 2.2 — the portal calendar** (the approved roadmap item, NO new tables): every dashboard gains a full-width `#calendar` section — a month grid (weeks start Sunday) with kind-coloured dots (amber = assignment due dates from `lms_assignments.due_at`, gold = school events from the site's `events` table, neutral = class notices from `lms_notices` dated by the day they were posted), tap-a-day lists, an UPCOMING strip, ‹ › month wandering and a Today button; the server fetches the WHOLE window (60 days back, 180 forward) role-scoped in ONE page load (student = their active classes, teacher = their class×subjects, parent = their children's) and precomputes every item's Asia/Colombo day so the grid never disagrees with the school clock; the island flips months with ZERO API calls; student due rows link straight into the homework page. QA: **31/31 API matrix** (multipart caption+file, file-only + 📎 hub preview, 6 MB → 400, .exe → 400, teacher PDF reply, byte door owner/foreign/parent/anon = 200/404/403/401, blob reclaimed on delete, text-only JSON regression, delivered receipts regression) + **15/15 calendar SSR matrix** (all three dashboards render the section with role-scoped dues/events/notices + homework links, foreign student carries nothing, no storage keys in HTML) + agent-browser E2E on real QA sessions (browser-uploaded PNG renders inline and loads through the permission-checked route, teacher's PDF-only reply renders the file card, the tick ladder flips live to Seen ✓✓ when the student opens, teacher header = exactly 4 pills with the full 12-item drawer, calendar day-tap lists, mobile 390px zero horizontal overflow on dashboard + chat); QA fixtures (questions/blobs/assignments/events/notices/parent links/accounts/sessions) purged, leftovers 0, curtain restored; APP_VERSION 2.8.52.0 → 2.8.53.0 |
-| 2.8.52.0 | **PHASE 2.1-c — the chat identity fix + WhatsApp tick ladder (the owner's "phrase 2.2 ekata kalin podi changes tikak")**: three owner observations, ONE root cause found and fixed. **THE BUG** ("chat eke teacher message ekak snd karath studentge name ekane watenne" — a teacher's reply appeared under the student's name): one browser may hold BOTH a student and a teacher session (per-role cookies since v2.8.37.1 — the owner tests both sides side by side), and the chat APIs resolved the session role-agnostically **student-first** — so the teacher's reply was SAVED AS THE STUDENT'S MESSAGE (`author_role='student'`), the student's name rode it, and read receipts never fired. Fixed with an explicit role hint: every chat client island sends `x-portal-role: student\|teacher` with each fetch and the routes resolve through the new `getPortalSessionForRequest` (picks ONLY that role's cookie — the hint cannot escalate, forged hints simply 401, every authorization check still runs on the resolved account; no hint = the documented role-agnostic fallback). **The WhatsApp tick ladder** — new `delivered_at` column (schema-extras, idempotent): the other side's chat-hub fetch marks their messages delivered (✓✓ grey), opening the thread marks them seen (✓✓ accent, the existing `read_at`), stored messages show ✓ sent — three honest states on every own-message, everywhere the bubbles render. **The refresh animation** ("refresh icon eka click karana animation ekak danawada") — the refresh ICON itself now spins on every click (min 650 ms pulse, not swapped for a spinner that a fast local fetch never showed) on all three surfaces: the hub list, the open conversation and the homework "Ask the teacher" card. QA: 19/19 API matrix — THE FIX proven end-to-end (both cookies + teacher hint → the reply carries the TEACHER account), delivered/seen receipts both directions (hub fetch = delivered-not-read, thread open = seen), no-hint fallback documented, parent 403 + forged-hint 401 + foreign 404 + anon 401, delete still author-only with the stub; agent-browser E2E on real sessions — browser-sent message ticks Sent → Delivered (after the teacher's hub fetch) → Seen (after the teacher opens), teacher reply renders "You" with both cookies present, confirm-dialog delete → stub, homework card ticks + refresh, mobile 390px zero horizontal overflow; QA rows/sessions/accounts purged (leftovers 0), curtain restored; APP_VERSION 2.8.51.0 → 2.8.52.0 |
-| 2.8.51.0 | **PHASE 2.1-b — the chat round (the owner's in-between request: "e athare mekath karanna")**: the private Q&A thread became a real chat. **Refresh + auto-refresh** — every chat surface (homework "Ask the teacher" card, the teacher register's inline Q&A, the new hub) carries a manual refresh button AND a quiet 60-second auto-refresh that only runs while the tab is visible (the owner: "auto 1min sarayak refresh wenna dammoth aulak wenne nathi") so a new reply never needs a page reload; **WhatsApp-style delete** — the AUTHOR can delete their OWN message (soft delete: the row keeps thread order, the body is withheld server-side, every reader sees the italic "This message was deleted" stub; cross-deletes 404); **read receipts** — a new `read_at` column records the moment a message's RECIPIENT first loads its thread (opening a conversation IS reading it), driving the sent ✓ / seen ✓✓ tick on the sender's side and every unread badge; **the dedicated Chat section** (the owner: "apita baida ekata wenama chat section ekak hadanna… 2 paththatama") — new `/student/chat` and `/teacher/chat` pages with a two-pane hub (thread list + open conversation; stacked-with-back on mobile): every conversation in one place with last-message preview, time, per-thread unread badge and filters (All / Unread / Needs-reply-for-teacher · Awaiting-reply-for-student) + search by student/assignment/subject/class, so a new message is discovered HERE instead of by walking into the assignment ("teacherta massage ekak awa kiyala … assignment ekatama yanna ona" — fixed); **unread everywhere** — the "Chat" nav item now rides every student/teacher page (pill + drawer, server-computed `chatUnreadBadge`, gold count dot) and the teacher register's Q&A toggle marks the thread read when expanded (via `GET ?studentId=`) while the register list keeps its "N to answer" chip (now deleted-aware). New API: `GET /api/portal/chat` (role-scoped hub rows), `DELETE /api/portal/assignments/[id]/questions/[messageId]` (author-only), teacher `GET questions?studentId=` (single thread + mark-read); `lms_assignment_questions` gains `read_at` + `deleted_at` (schema-extras, idempotent). Limits check the owner asked for ("ape limits athule ne ekath"): text-only ≤1000 chars, tiny rows, no storage — comfortably inside the free Supabase tier. Privacy contract unchanged and re-verified on every new path. QA: 35/35 API matrix (receipts both directions before/after open, delete flow incl. cross-delete 404 + double-delete 404 + all-deleted thread semantics, hub unread/needsReply flips on both sides, parent 403 ×3, foreign student 404 ×3, roster guards, curtain 503, anon 401 ×2) + agent-browser E2E on real QA sessions (student + teacher hubs render with badges, thread open clears badges in place, browser-sent message updates the row preview + AWAITING chip, confirm-dialog delete → stub, mobile 390px clean with the stray empty list-card shell fixed, zero horizontal overflow) — QA rows/sessions/accounts purged (leftovers 0), maintenance curtain restored; APP_VERSION 2.8.50.0 → 2.8.51.0 |
-| 2.8.50.0 | **PHASE 2.1 — Assignment Q&A: the private "Ask the teacher" thread (+ the README work-list the owner asked to be recorded)**: the owner's request ("mata kalin kiyanna amathak una readme eke ape ilagata karana tika recorde kara ne") first — README-NEW now carries the whole agreed LMS work list (Phases 0→5 + deferred D.1–D.3) with live progress ticks, right under Roadmap Status. Then the feature: **one private thread per (assignment, student)** on a new tiny `lms_assignment_questions` table (author_role flips student/teacher; plain text, ≤1000 chars) — the student asks from a new full-width "Ask the teacher" card on `/student/homework/[id]` (chat bubbles, privacy line, char counter, server-rendered thread), the teachers who teach that class×subject read every thread in the submissions register (per-student "Q&A · N messages" toggle with an amber **needs-reply** chip while the last message is the student's) and answer inline; the register header gains a "N to answer" chip and the assignment LIST card carries the same amber badge so unanswered questions are visible before the register is even opened. Privacy contract enforced server-side in `portal-questions.ts` on EVERY path: student = own thread only + active enrollment in the assignment's class; teacher = class×subject ownership + roster check on the reply target; parents get 403, other students/other teachers get 404 (no existence leak); short bodies 400. QA: 18/18 API matrix (ask → unread badge 1 → reply → badge 0 → thread answered; parent 403, foreign student/teacher 404 both verbs, roster guard, curtain 503, bypass-only 401) + agent-browser SSR (student page renders the thread + privacy line at 390px with zero horizontal scroll, teacher page renders the amber list badge — QA rows/sessions/accounts purged, leftovers 0); APP_VERSION 2.8.49.0 → 2.8.50.0 |
-| 2.8.14 | Editor & CMS hardening package (14-item admin request) |
-| 2.8.15 | Media pipeline completion, white crest system, keyed visual patches |
-| 2.8.16 | Central logo registry, editor-exit fix, Online Resources section |
-| 2.8.17 | Provider-neutral storage layer restored — custom image uploads fixed |
-| 2.8.18 | Admin Studio upgrade: falcon emblem, grouped sections, own Footer section, cadeting preloaders, image-led dashboard, news media toggles |
-| 2.8.19 | Calm admin emblem, per-unit preloaders, Profile & Version History sections |
-| 2.8.20 | Form Management (4 tabs + CSV), announcement popups, live channel + `/live`, single cadeting preloader |
-| 2.8.20.1–2.8.20.2 | Live badges: premium → clean flat glass refinement |
-| 2.8.21.0 | Popup enrichment, DB-backed A/L teachers/classes & Old Thomians lists, NEW badge system |
-| 2.8.21.1 | Five fixes: popup links, editor entry unification, NEW badges, navbar placement, reusable visual blocks |
-| 2.8.22.0 | Editor chooser, cinematic site preloader, `/admin/filters` management, popup fixes |
-| 2.8.22.1 | Preloader rebuilt to the user's exact storyboard + three bug fixes |
-| 2.8.23.0 | Preloader storyboard v3 (3-stage), single round loader everywhere, toolbar/badge positions |
-| 2.8.23.1 | Storage module restored (3rd time) + preloader bar refinement |
-| 2.8.24.0 | Preloader admin controls (circle/ring/bar width/route loader), mobile Admin Studio, admin performance |
-| 2.8.25.0 | Cinematic admin theme system, draggable editor toolbars, nine mobile/UX fixes |
-| 2.8.25.1 | Mobile admin polish: label `min-width` root fix, wrap-safe toolbars (Publish always visible) |
-| 2.8.25.2 | Full-page theme gradient, popups mobile stack, DB rebuilt from migrations after PGlite incident |
-| 2.8.25.3 | Pre-paint theme persistence (cookie), themed scrollbars, preloader title/motto/sentence size scales, storage restored (4th time) |
-| 2.8.26.0 | **Phase 2.2 Supabase cutover**: dual-driver client, schema + data migrated (30/30 tables), RLS hardened, verified end-to-end |
-| 2.8.26.1 | Container-restore recovery (env re-cut over via `SITE_DATABASE_URL`), read-only `supabase-dump.mjs`, full project backup ZIP (`/stc-backup-2.8.26.1.zip`) |
-| 2.8.27.0 | **Phase 2.3 (part 1) — Admin Role Management**: 8 roles, permission matrix enforced server-side on every admin API + page, Role Management section (users / access requests / add / approve / reset / disable / delete), public Request-access flow, sidebar gating, audit-logged. Plus: 5th storage-module loss ROOT-CAUSED (`.gitignore` `storage/` rule) & fixed, `src/lib/storage` + `media/upload` rebuilt & now git-tracked |
-| 2.8.28.0–2.8.30.1 | **Lost in the 2026-10-17 workspace rollback** (code + git history unrecoverable). Known from records: 2.8.30.0 built the portal auth foundation (nav Login, `/login` role cards, guarded shells); 2.8.30.1 added (email, role) composite unique + all-3-role owner provisioning, `prompt=select_account`, clean `/login` + per-role sign-in pages. All functionality re-landed in 2.8.31.0 |
-| 2.8.31.0 | **Phase 3.1 recovery + portal polish**: workspace-rollback recovery (schema regenerated from live Supabase DDL, portal auth stack rebuilt), Google account-chooser verified end-to-end (`prompt=select_account` forwarded Supabase→Google), OAuth callback cookies attached to the 303 response (no-store), **Eduora-style cream/amber dashboards for Student / Teacher / Parent** with real LMS data + honest empty states, working portal sign-out, `.env` self-heal (`env-bootstrap.ts`), pooler re-cut-over + `find-supabase-url.mjs` + `seed-owner-portal.mjs` durability scripts |
-| 2.8.32.0 | **9-issue fix batch**: relative-Location redirects everywhere (Google login / logout no longer land on unreachable `localhost:3000`), **Admin Google sign-in** + `auth_provider` + profile Sign-in-method card, Role Management table columns re-aligned (shared all-fr grid), preloader referrer-skip (home page no longer scroll-locked after admin), **portal self-registration** (`/register`), **Admin → Portal Users** manager (create/pause/reset/delete + audit), `boot-heal.mjs` predev auto-repair |
-| 2.8.32.1 | **Google login completion fix**: DB-backed chooser tokens (`lms_oauth_choices`, survives reloads/restarts; hard `window.location.assign` after choice), `PUBLIC_SITE_URL` origin pin (env + boot-heal), `max_auth_age=0`, `/?code=` home-page safety net |
-| 2.8.32.2 | **Portal Google login cookie fix**: OAuth callback was setting session/chooser cookies on a discarded response object — cookies now attach to the response actually returned (single `respond()` helper + cleanup on every exit path); admin flow unaffected (it already reused one object) |
-| 2.8.32.3 | **Role-intent sign-in** (Google + password: clicked portal = entered portal; wrong-portal notice + one-tap switch), **preloader boot curtain** (no home-page flash before the cinematic; black pre-paint cover + 4s failsafe) |
-| 2.8.33.0 | **Registration verification against the school registers**: office registers (students: admission no/class/register no/father & mother; teachers: ID/name/email) in Admin → Verification Records, auto-approve on full match, Pending queue + Approve/Reject in Admin → Registration Approvals, students sign in with their admission number, forgiving name/class/ID matching |
-| 2.8.33.1 | **Off-site backup mirror + secret-leak fix**: GitHub mirror `school-site-backups` (token kept OUT of tracked files — origin repo is public; URL in `.env` + `/home/z/.school-backup-remote`, auto-restored by boot-heal step 4), one-command `bun run backup` (mirror push + live Supabase JSON dump + `.env` snapshot to `/home/z/backups`, survives sandbox resets), **removed `public/stc-backup-2.8.26.1.zip` (96 MB ZIP containing `.env`/keys, was downloadable from the live site) from disk AND entire git history** (filter-branch + gc, mirror force-pushed clean) — key rotation advised |
-| 2.8.34.0 | **Phase 3.1-b — LMS Setup + live dashboards (Options A+B)**: registration→LMS bridge (`lms-identity.ts` — verified accounts materialize into `lms_students`/`lms_teachers`/`lms_parents` + auto-enrollment into the register class; seeded staff rows get CLAIMED at sign-in, not duplicated); **portal Profile pages** (`/student|teacher|parent/profile` — account card + school-register record read LIVE: admission/register no, class, father/mother or staff details, class teacher; parents see children's register cards); **Admin → LMS Setup** (`/admin/lms` — Classes 6A–11E + A/L S/C/A streams, Subjects, Teaching assignments, Enrollment) + `/api/admin/lms/*` (guarded + audit-logged); **demo seed** (54 classes, 12 subjects, 11 staff, 13 students, enrollments, 60 assignments, timetable, notices, homework — fully idempotent `scripts/seed-lms-demo.mjs`); dashboards now show real class/subject/timetable/notice data |
-| 2.8.34.1 | **Sandbox checkpoint-restore recovery + fresh-DB self-provisioning**: sandbox rolled back to v2.8.27.0 after reset — full latest state (v2.8.34.0) restored from the off-site `school-site-backups` mirror (git fetch + reset); corrupted local PGlite rebuilt via `db:push` on `db/custom.db` (sandbox-global `DATABASE_URL` beats `.env` — documented); **schema-extras LMS self-provisioning block** — 16 `CREATE TABLE IF NOT EXISTS` statements (classes, subjects, class_subjects, students, teachers, parents, enrollments, assignments, submissions, attendance, assessments, marks, timetable_slots, materials, notices, portal_accounts, parent_children + unique indexes) so `ensureSchemaExtras()` no longer crashes on fresh databases where `lms_portal_accounts` did not exist before its `ALTER TABLE`; generated migration 0004 (admin_access_requests + auth_provider/hidden columns); backup remote re-wired from recorded PAT |
-| 2.8.34.2 | **Supabase live reconnection**: sandbox rollback had wiped the untracked `.env` carrying `SITE_DATABASE_URL` (data itself was never lost — safe on Supabase cloud); re-used the v2.8.31.0 recovery probe (`scripts/find-supabase-url.mjs`) to re-discover the working endpoint (aws-0-ap-southeast-1 pooler, 52 public tables) — no password reset needed; all real data live again (3 admin accounts, 54 classes, 13 students/staff records, 8 portal accounts, CMS); fresh off-site DB dump (212K JSON) + env snapshot to `/home/z/backups` and mirror push |
-| 2.8.35.0 | **LMS ADMIN STUDIO — module isolation (owner decision)**: LMS operations moved OUT of the website Admin Studio into a separate portal at `/lms-admin` with its OWN accounts (role `lms_admin` in `lms_portal_accounts`), own login (`/lms-admin/login` — password + Google), one-time setup screen (`/lms-admin/setup`, closes after the first account; site owner can also invite LMS admins from Admin → Portal Users), live dashboard (classes/subjects/students/enrollments/staff/pending approvals + newest registration requests), Registration Approvals (`/lms-admin/registrations`), Verification Records (`/lms-admin/registers`), LMS Setup (`/lms-admin/manage` — same 4-tab manager); shared LMS APIs now dual-guarded (site admin `portal` permission OR lms_admin session, normalized actor for audit logs); `/admin/lms*` URLs redirect; Google Chrome-gating (preloader/popups/visual editor) skips `/lms-admin`; SITE ADMIN PANEL = WEBSITE ONLY |
-| 2.8.35.1 | **GOOGLE LOGIN RESTORED + LMS STUDIO DARK THEME (owner decisions)**: owner supplied the missing `SUPABASE_ANON_KEY` (lost in the v2.8.27 rollback) — Google sign-in verified end-to-end (app → Supabase authorize w/ PKCE → accounts.google.com, provider enabled) for portal + admin + lms-admin; LMS Admin Studio restyled with its OWN "Obsidian & Gold" identity — professional dark theme (#0b0b0d backdrop, #141416 panels, school-gold `#ffd444` as the single accent with black-on-gold actions), applied to shell/dashboard/login/setup/sign-out; shared light-styled managers (approvals/registers/setup) render dark via a scoped `.lms-dark` CSS layer in globals.css that remaps their exact utility classes — unlayered rules beat `@layer utilities`, so `/admin` and the public site are untouched; verified live-data rendering on all 4 sections, mobile viewport, sticky footer, native selects |
-| 2.8.36.0 | **PORTAL DARK THEME + THEME CHOICE + MOTION (owner request)**: the LMS login/register/chooser pages and the Student / Teacher / Parent dashboards + profiles left the static warm-cream look for a token-based dual theme — DARK "Obsidian & Gold" is now the DEFAULT (same identity as LMS Admin Studio: #0b0b0d backdrop with a faint gold radial glow, #141416 panels, school-gold `#ffd444` accents, black-on-gold actions) and the original warm cream returns as the explicit LIGHT choice; a sun/moon toggle (header on portals, top-right corner on login/register pages) flips `html[data-portal-theme]` and remembers the choice in localStorage (`stc-portal-theme`) via a no-flash boot script in the root layout; every colour now reads from `.portal-scope` CSS variables (--pt-*) in globals.css so both themes are first-class and future portal pages theme for free; motion added with pure CSS — staggered panel rise on load, chart bars growing from the baseline, the trend line drawing itself, chip pop-in, hover lifts/glow on cards & buttons, theme-icon rotation — all disabled under `prefers-reduced-motion`; verified end-to-end with Agent Browser (dark default, toggle + persistence across reload and navigation, both themes pixel-checked on login/register/dashboards/profile, mobile 390px, sticky footer, /admin + homepage regressions clean); 3 temp portal accounts used for live-data testing were deleted afterwards |
-| 2.8.36.1 | **.ENV SAFETY NET (owner request: "put .env in git so restarts can't lose it")**: owner asked to commit `.env` to git — but the origin repo `sasikadiv-cyber/School` was verified PUBLIC (GitHub API 200 unauthenticated) and `.env` holds the live Supabase DB password + backup GitHub token, so a raw commit would leak the school's database to the world. Safety net delivered WITHOUT leaking: (1) `.env.example` (tracked, gitignore-exempt) rewritten as the complete current key set — SITE_DATABASE_URL / SUPABASE_URL / SUPABASE_ANON_KEY / BACKUP_GIT_URL / PUBLIC_SITE_URL + media + future blocks — secrets as placeholders, 3-layer recovery doc inline; (2) `scripts/backup-push.sh` gained step 4/4: every `bun run backup` now commits the REAL `.env` to branch `env-snapshot` via git plumbing (temp index — working tree/index untouched, no .gitignore change) and pushes it to the PRIVATE school-site-backups mirror only, never origin; (3) README env table + ".env safety net" runbook added (restore: `git fetch backup env-snapshot && git show FETCH_HEAD:.env > .env`); boot-heal auto-restore remains layer 1. Verified: env-snapshot branch live on the private mirror, restored `.env` byte-identical, origin history stays secret-free |
-| 2.8.37.0 | **PHASE 3.1-c — ATTENDANCE REGISTER (owner go)**: teachers mark the daily roll at `/teacher/attendance` — class pills (taught via `lms_class_subjects` OR led via `class_teacher_id`), Colombo-day picker, per-student Present/Absent/Late/Excused segmented buttons (tap again to clear), "mark unmarked present" bulk action, unsaved-changes indicator, weekend note; save = idempotent upsert on the (class, student, day) unique index so re-marking a day corrects it; new guarded portal APIs `GET /api/portal/attendance/roster` + `POST /api/portal/attendance/save` (teacher session + server-side class ownership + every marked student must be actively enrolled in THAT class); Student dashboard gains the "My Attendance" panel (%, this-month %, status chips, last 12 days) and Parent child cards show absences count + last absent day; built entirely on the shared `--pt-*` tokens so both themes are first-class (dark Obsidian & Gold + cream light, pixel-checked both + 390px mobile); E2E via Agent Browser with temp teacher/student/parent accounts — mark → save → DB verified, student/parent views reflected instantly, non-owned class 403, weekend note + persistence round-trip confirmed; temp accounts deleted afterwards, 4 demo attendance rows kept (attributed to the owner's teacher account — staff row T-078 now linked to sasikadiv@gmail.com so the owner's teacher portal opens 5 real ICT classes); lint back at the 21-problem baseline, tsc clean for src/ |
-| 2.8.37.1 | **INDEPENDENT PORTAL SESSIONS + ACCOUNT-LESS ATTENDANCE (owner bug reports)**: (1) "logout from lms-admin kills every portal" — root cause: all four doors (student/teacher/parent/lms-admin) shared ONE `stc_portal_session` cookie and ONE session row, so any logout/login replaced it for the whole browser. Every portal now owns its own cookie — `stc_student_session` / `stc_teacher_session` / `stc_parent_session` / `stc_lmsadmin_session` — with the DB session model unchanged; logins, the OAuth callback, the multi-role chooser and the register route write the role's cookie, portal logout (`?role` in body) and studio logout destroy only their own role's session, and the old shared cookie stays as a read-only fallback (matched by role) so accounts signed in before the change never re-login; verified in the browser: student + teacher + lms-admin sessions coexist (3 cookies), studio logout leaves both portals signed in, teacher logout leaves student signed in, legacy-cookie user still opens the portal and legacy session is destroyed (not resurrected) on matching-role sign-out; (2) "attendance only works for students with accounts" — root cause: adding a child to the OFFICE REGISTER did not touch `lms_students`/`lms_enrollments`; the roster is enrollment-driven so the child only appeared once an account existed (the login bridge auto-enrolled). `POST /api/admin/verification-records` (type=student) now materializes the person row and auto-enrolls into the class named on the register the moment the record is added — no account needed — and returns `autoEnrolledInto` which the registers manager flashes ("added and enrolled into 6-A — attendance-ready even without an account"); `DELETE` drops the child's active enrollment too (register = source of truth, person row + attendance history kept); verified E2E: register record 2999 → person account_id NULL + active enrollment → teacher roster lists the child → marked Present → row in `lms_attendance`; temp accounts + test data deleted afterwards |
-| 2.8.39.1 | **Lottie delivery fix (follow-up patch)**: the dynamic `import("lottie-web")` chunk broke after cold dev-server restarts — Turbopack threw "chunk path empty but not in a worker" during chunk registration, leaving the maintenance screen's Lottie containers empty (silent, caught). Delivery switched to STATIC imports: both generated JSONs + `lottie-web` now bundle into the page (zero runtime fetches, no dynamic chunk to mis-register), the component takes a `variant="gears"|"pulse"` prop instead of a src URL. Verified post-restart: SVGs render (19.7KB/2.4KB), gear rotation transform deltas confirmed live, full scene screenshot checked. No other changes |
-| 2.8.39.0 | **MAINTENANCE PAGE + MOBILITY + PORTAL REBUILD (owner 7-point list)**: (1) /maintenance screen rebuilt as an animated scene — TWO hand-generated Lottie JSONs (`scripts/generate-lottie.mjs` → `public/lottie/`, license-free: interlocking outline gears counter-rotating in a pulsing halo with orbiting dots + twinkling sparks; radar rings + core for the status chip) played by a tiny client `MaintenanceLottie` (direct `lottie-web`, code-split; static first frame under prefers-reduced-motion), glass card with shimmering gold gradient headline, floating motes, dot grid, shimmer progress bar — keyframes use the classic s/e + easing format (the modern s-array format froze rotation in lottie-web); (2) MAINTENANCE MODE OWNERSHIP moved to the MAIN Admin Studio → Settings (`MaintenanceSettings` + `GET/POST /api/admin/maintenance`, guarded by `requireAdminApi`) — LMS Studio settings now a pointer card; middleware bypass extended to the main-admin session (`hasLiveMainAdminSession`, SHA-256 + admin_sessions join), `/api/admin/*` fully exempt so the editor can keep SAVING while the curtain is up; (3) Verification Records light-theme fix — the manager was hard-coded white-alpha (invisible on the pastel canvas); fully tokenised to `--la-*` in BOTH themes + a register search box; (4) LMS Setup got a search box filtering all four tabs (classes/subjects/teaching/enrollment); (5) LMS Studio mobile: the horizontal pill strip is replaced by a slide-in SIDE PANEL (hamburger → left drawer with sections/account/theme/sign-out, portalled to body because the header's backdrop-blur makes filtered ancestors the containing block for fixed children — it was trapped 64px tall); both desktop pills and drawer render from one shared `LMS_ADMIN_NAV`; (6) portal dashboards REBUILT on the reference structure: rounded stat-card rows (StatCards) up top, chart panels, EmptyNote illustration; teacher portal gets the CLASS ROSTER PICTURE WALL — pick a class pill → every student with their own deterministic illustration avatar (`studentAvatarFor`, 8 generated avatars in /avatars, 256px); parent children as avatar ChildCards with attendance chip; (7) studio enrichment: illustrated welcome banner (studio-hero.png) with live date + dynamic headline, live "Students per class" chart (la-bar grow animation, ordered by count), staggered la-rise entrances; new images generated + optimised (sharp: avatars 256px ~17KB, hero 173KB); E2E via Agent Browser (QA temp admin/lms-admin/teacher/parent/student sessions, all removed — leftovers 0, person 2406 account_id reset, maintenance left OFF): gears verified rotating (transform deltas), gate matrix re-run (no-cookie 307 + 503 JSON, forged 307, main-admin 200, lms-admin 200, /api/admin exempt→401), registers light theme fully readable + search 2401→1 row, setup search filters classes, drawer open/navigate/close + desktop pills intact, teacher roster class switch swaps students+avatars, parent light-theme child card, student light+390px mobile, home/login/admin 200; lint at the exact 21-problem baseline, tsc clean for src/ |
-| 2.8.38.0 | **PASTEL REDESIGN + MAINTENANCE MODE (owner go)**: (1) LMS Admin Studio redesigned on the owner's reference (soft pastel CRM look) as a dual-theme token scope — new `--la-*` tokens (`Slate & Ink`: cool pastel light + soft charcoal dark, default dark, sun/moon toggle persisting to `stc-lmsadmin-theme` via a root-layout boot script, gold kept as the crest/focus brand accent, ink/white pill nav, rounded-3xl cards, tinted icon tiles rotating blue/coral/gold); the three shared managers follow via scoped utility remaps (dark remaps now gated by `html[data-lmsadmin-theme]`, `/admin` untouched); (2) portal dashboards (student/teacher/parent) moved onto the same design language with the school gold KEPT as their accent — the deliberate difference from the studio's ink pill — pastel light + soft charcoal dark palettes in globals.css, rounded-3xl panels, pastel avatar rotation; (3) MAINTENANCE MODE in LMS Admin Studio → Settings: one toggle (new `/lms-admin/settings` page + client component + `GET/POST /api/lms-admin/settings/maintenance`) stores `{enabled,message}` under a dedicated `site_settings` key (`maintenance_mode`, NOT the whitelisted site_identity row) with audit logging; new Node-runtime `src/middleware.ts` gates every non-exempt route when ON — pages redirect to a new branded `/maintenance` screen, APIs answer 503, EXCEPT visitors with a live `stc_lmsadmin_session` cookie (SHA-256 hash + DB-validated, forged cookies rejected) so the admin keeps a live preview; fail-open on DB errors; (4) LMS Setup table header fix — sticky `thead` was transparent in dark (alpha remap) so rows showed through; headers now SOLID in both themes + `z-10`; E2E via Agent Browser with temp admin/student sessions: dashboard dark+light screenshots, settings toggle ON → visitor GET / = 307 to /maintenance, API = 503, forged cookie still 307, admin preview = 200, OFF → site reopens; table scroll verified; student portal dark+light+390px mobile pixel-checked; QA accounts removed, lint at the 21-problem baseline, tsc clean for src/ |
+| 2.8.66.4 | **UPLOADS CAN NEVER DIE AGAIN — sharp-optional finalize + CORS steps that match the real dialog** (owner's screenshot of the Backblaze CORS dialog showed it only offers radio presets — no JSON field — while DEPLOY-VERCEL.md still said "paste this JSON"; and if sharp were still broken on the host, finalize would 400 even after the CORS save). (1) DEPLOY-VERCEL.md rewritten to the dialog as it actually is: pick **"Share everything in this bucket with every origin"** (2nd radio) → Update CORS Rules → ~1 minute to take effect; the exact JSON remains only as a CLI fallback using the account master key (the scoped app key cannot update buckets by design). Private bucket stays private — every GET still needs a signed URL. (2) media-processing now DEGRADES instead of failing: when the native pipeline cannot load, the original file is stored as the single "master" variant after a magic-byte sniff (JPEG/PNG/WebP/AVIF/HEIC — judged from the file header, never client headers), with dimensions/blur/dominant unknown and EXIF not stripped (documented trade-off, audit-logged as `original-stored`/`sharp-unavailable`); the upload loop is now network/CORS-sensitive only and can never again be killed by native-binary trouble; the normal WebP variant pipeline is unchanged when sharp loads. Verified with a sandbox probe that pushed a real JPEG through the degrade path against the live DB + B2 storage (asset + master variant + audit row created, then fully cleaned up), tsc + eslint clean. APP_VERSION 2.8.66.3 → **2.8.66.4**; owner zip re-shipped. |
+| 2.8.66.3 | **THE LIBVIPS TRACE FIX — sharp binaries pinned into the Vercel bundle** (owner's post-deploy log: the 66.2 lazy fallback worked — `edia/thumb] sharp failed to load — serving originals` instead of a 500 — but the real upload was still dead: `ERR_DLOPEN_FAILED: libvips-cpp.so.8.18.7: cannot open shared object file`). Root cause: Vercel's file tracer shipped sharp's binding (`@img/sharp-linux-x64`, proven present by the dlopen attempt) but DROPPED its 18.7 MB sibling `@img/sharp-libvips-linux-x64` — the package has no JS entry the tracer can follow, just the `.so` the binding dlopens via rpath. Triple fix: (1) `outputFileTracingIncludes` in next.config.ts pins `sharp` + both `@img` binary packages into the `/api/media/thumb` and `/api/admin/media/finalize` function bundles; (2) both packages added to `serverExternalPackages` so Turbopack emits runtime requires the tracer can see; (3) both sharp loaders (thumb route + media-processing `getSharp`) carry a caught hint import of the libvips stub — a literal in the module graph the tracer always follows. Hint sits in its own try/catch so non-glibc dev platforms are unaffected. Owner note: `The direct upload connection failed.` is the XHR onerror string = the B2 PUT still blocked at network level → the one-time B2 CORS rule must ALSO be saved in the Backblaze console; deploy + CORS rule together finish the upload loop. APP_VERSION 2.8.66.2 → **2.8.66.3**; owner zip re-shipped. |
+| 2.8.66.2 | **THE VERCEL IMAGE FIX** (owner: live deploy 500s on `/api/media/thumb` ×10 and the presigned PUT to `s3.us-east-005.backblazeb2.com/stc-media` is blocked by CORS). Root causes + fixes: (1) Next 16 dropped sharp from its default `serverExternalPackages`, so Turbopack bundled the native binary into route chunks and every sharp-importing route crashed at MODULE INIT on Vercel (invalid-src probe returned the static 500 page) — sharp externalized and both importers lazy-load it inside try/catch; the thumb route can never 500 again (worst case 302 to the original, `sharp failed to load — serving originals` in the logs), and its cache moved to `os.tmpdir()/stc-thumbs` because the serverless FS is read-only outside /tmp. (2) The private bucket had no CORS rules, so the browser blocked the signed PUT — one-time console rule documented in DEPLOY-VERCEL.md (the scoped app key cannot update buckets: `b2_get_bucket`/`b2_update_bucket` 403 with capabilities read/write/delete/list only; B2 API v3 shape: `apiInfo.storageApi.*`). APP_VERSION 2.8.66.1 → **2.8.66.2**; owner zip re-shipped. |
+| 2.8.61.0 → 2.8.66.1 | **THE B2 + VERCEL ARC** *(row reconstructed 2026-10-23 after a workspace rollback wiped the tree — see worklog Task 12; the releases themselves shipped and deployed live)*. Supabase Postgres via drizzle/node-postgres on the 6543 transaction pooler (5432 exhausts serverless connections); `DATABASE_POOL_MAX` pool sizing; Backblaze B2 as the media provider (private bucket `stc-media`, region us-east-005, scoped app key `stc-site`, presigned PUT uploads + 302 signed-URL reads so Vercel bandwidth stays ~zero); live backfill of the legacy public media (8/8 objects, verified byte-identical, plain URLs 401); DEPLOY-VERCEL.md written (env sheet, deploy loop, VPS plan B); first owner zips (git archive lean recipe + filtered `.env` for Vercel import); media backfill + zip-delivery mini-service tooling. APP_VERSION 2.8.60.0 → **2.8.66.1**. |
 
-| 2.8.63.0 | **THE PRINCIPAL'S CERTIFICATION ROUND — report cards now flow through the Principal, and the PDF button goes** (owner: "download option eka one na physical report eka thiyanawa ne oka nikan digital preview ekak witharane" — the Download PDF button from 2.8.62.1 is REMOVED, html-to-image + jspdf uninstalled, the sheet keeps Print only; owner's policy decision: students and parents see a sheet ONLY after the Principal certifies it). **① The PRINCIPAL PORTAL ROLE** — a fourth portal joins (`role='principal'`, cookie `stc_principal_session`, home `/principal`): invite-only (self-registration is blocked at /register/principal AND in the register API; the office creates it in Admin Studio → Portal Accounts, which now offers "Principal (certifies report cards)"); the login chooser, OAuth multi-role chooser and per-role cookie/session plumbing all carry it; its own nav (Dashboard · Certify · Signature · Profile), brand-logo surface and header pills. **② The certification lifecycle** — `draft → submitted → certified` with an append-only audit table (`lms_report_card_events`: submit / recall / certify / return + the note): the teacher's editor replaces Save & publish with **Save & submit to Principal** (a submitted sheet LOCKS — no edits, no delete; Recall pulls it back), the Principal gets a **queue** (only submitted sheets — drafts stay the teacher's private workspace), a review room rendering the exact sheet, **Certify** (requires the Principal's signature + seal uploaded first; snapshots the certifying name onto the line — legacy `published` rows migrate to `certified` so nothing changes for existing sheets) and **Return with a note** (works on submitted AND certified — the un-certify path; the note lands at the top of the teacher's editor). Students/parents read CERTIFIED sheets only; class stats (First-in-class, Position) now compute from the certified field. **③ PRIVATE signature stamps** (`lms_signatures` — base64 INSIDE the database: no public URL, no media library, nothing to guess) with a **Signature Studio** on the teacher profile (their signature) and the principal portal (signature + college seal; PNG-only via magic-byte check, ≤2 MB, replace/remove anytime); the stamps are placed SERVER-SIDE at certify time and served to browsers ONLY through `/api/portal/report-card-signature`, which re-checks the viewer against the card (own / linked child / class teacher / principal) and serves 404 for any non-certified sheet — anonymous probes get 401, possessing a URL without a session is useless. **④ Principal test account seeded** for the owner: `principal@stcmatale.lk` / `StcPrincipal#2026` (name "Mr. Dhammika Hewawasam" — the office can replace or re-invite). QA: full E2E on live data — queue shows the submitted sheet, certify → status+name snapshot+audit row, both stamps load on the sheet in the browser (naturalWidth 300/160), return-with-note → draft + note + audit, re-certify after submit, draft re-certify correctly rejected `wrong_state`, anonymous stamp probe 401, every route 200; eslint 0; src tsc clean. APP_VERSION 2.8.62.1 → **2.8.63.0**. |
-| 2.8.66.1 | **THE SERVERLESS CONNECTION FIX — EMAXCONNSESSION** (owner's live Vercel deploy: "site eka load wenne na ne" — pages threw `EMAXCONNSESSION max clients reached in session mode - max clients are limited to pool_size: 15`, code XX000). Root cause: Supabase's Supavisor pooler allows only **15 server-side clients in session mode**, but the app's node-postgres pool opened up to **10 connections per function instance** and Vercel runs several instances under load (the sandbox dev server shares the same 15) — the cap blew and every query failed. Fix: the pool now defaults to **max 4** connections (`DATABASE_POOL_MAX` env overrides it for long-lived hosts) and idles connections out after 10s instead of 30s; for Vercel the recommended env is the **transaction-mode pooler (SITE_DATABASE_URL port 6543)** — clients multiplex over the 15 shared backends, which is Supabase's recommended serverless setup (no named prepared statements / LISTEN used anywhere; the 5 `db.transaction()` call sites work unchanged). The sandbox dev server stays on session mode 5432 (right for a long-lived process). Owner zip re-shipped with the updated Vercel `.env` (port 6543 + `DATABASE_POOL_MAX=4` + real `PUBLIC_SITE_URL` example). APP_VERSION 2.8.66.0 → **2.8.66.1**. |
-| 2.8.66.2 | **THE VERCEL IMAGE FIX — thumb 500s + B2 upload CORS** (owner's live deploy stc-site-eta.vercel.app: "images upload karanna bari aula" — every /api/media/thumb returned 500 and the browser PUT to Backblaze died with `blocked by CORS policy`). Two independent roots, both confirmed by live probes. (1) **sharp was being BUNDLED**: Next 16 dropped sharp from its default `serverExternalPackages`, so the Turbopack production build inlined the native binary into route chunks and both sharp-importing routes (`/api/media/thumb`, and `/api/admin/media/finalize` via media-processing) crashed at module init — a 400-path thumb probe still returned Vercel's static 500 page, the module-init signature. The sandbox never showed it because `next dev` externalizes natively. Fix: `sharp` added to `serverExternalPackages` in next.config.ts, and BOTH files now load sharp lazily (`await import` inside try); the thumb route additionally moved its cache to `os.tmpdir()/stc-thumbs` (serverless FS is read-only outside /tmp) and downgrades ANY failure to a 302 redirect to the original file — the route can no longer 500, worst case an unoptimized original renders. (2) **the stc-media bucket had NO CORS rules**: browser-direct presigned PUTs need the bucket to answer the preflight; B2 preflight returned 403 with no ACAO header, and the scoped app key lacks the writeBuckets capability so the rule cannot be set via API — the exact JSON now lives in DEPLOY-VERCEL.md (allowedOrigins ["*"], allowedHeaders ["*"], s3_put/get/head/delete; safe on a private bucket because every read still requires a signed URL). Local verify: tsc clean, eslint clean, /api/media/thumb 200 image/webp + invalid-src 400 after hot reload. APP_VERSION 2.8.66.1 → **2.8.66.2**; owner zip re-shipped. |
-| 2.8.66.3 | **THE LIBVIPS TRACE FIX — sharp binaries pinned into the Vercel bundle** (owner's post-deploy log: the 66.2 lazy fallback worked — `[media/thumb] sharp failed to load — serving originals` instead of a 500 — but the real upload was still dead: `ERR_DLOPEN_FAILED: libvips-cpp.so.8.18.7: cannot open shared object file`). Root cause: Vercel's file tracer shipped sharp's binding (`@img/sharp-linux-x64`, proven present by the dlopen attempt) but DROPPED its 18.7 MB sibling `@img/sharp-libvips-linux-x64` — the package has no JS entry the tracer can follow, just the `.so` the binding dlopens via rpath. Triple fix: (1) `outputFileTracingIncludes` in next.config.ts pins `sharp` + both `@img` binary packages into the `/api/media/thumb` and `/api/admin/media/finalize` function bundles; (2) both packages added to `serverExternalPackages` so Turbopack emits runtime requires the tracer can see; (3) both sharp loaders (thumb route + media-processing `getSharp`) carry a caught hint import of the libvips stub — a literal in the module graph the tracer always follows. Hint sits in its own try/catch so non-glibc dev platforms are unaffected. Verified locally: tsc clean, eslint clean, hint import resolves to the lib dir, thumb route 200 image/webp with sharp actually rendering. Owner note kept in chat: `The direct upload connection failed.` is the XHR onerror string = the B2 PUT still blocked at network level → the one-time B2 CORS rule (DEPLOY-VERCEL.md JSON) must ALSO be saved in the Backblaze console; deploy + CORS rule together finish the upload loop. APP_VERSION 2.8.66.2 → **2.8.66.3**; owner zip re-shipped. |
-| 2.8.66.0 | **THE PRIVATE-BUCKET ROUND — B2 without a credit card** (owner: "backblaze eke public bucket hadanna credit card details illanawa… private ekak hadala api eke access karanna barida"). Answer: YES — private buckets work fully through the API, and now the code agrees. **① Presigned serving for PRIVATE buckets** — new `R2_PRIVATE_BUCKET=1` env flag: Backblaze only demands a payment method to create PUBLIC buckets, so the school can create a free **private** bucket and the media firewall 302s browsers to **presigned GET URLs** (SigV4, 6-day TTL, signed locally per redirect — pure HMAC, no network call, zero app bandwidth) instead of plain bucket URLs; `getProviderUrl` (public mode) and `getSignedReadUrl` (private mode) are the two redirect targets. **② Provider URLs are no longer stored anywhere** — `getPublicUrl` now returns the stable `/api/media/file?key=…` app path for EVERY driver (database/local already did; S3 was the odd one out), so `mediaVariants.public_url`, the admin media picker, and every URL embedded into CMS content stay driver-neutral — they can never 401 on a private bucket or snap when the provider changes; the firewall route gained a defensive non-S3 guard against 302 loops. **③ Docs** — DEPLOY-VERCEL.md's B2 runbook rewritten around a private bucket ("Files in Bucket are: Private", no card, the exact Vercel env block with `R2_PRIVATE_BUCKET=1`, how presigned serving works), `.env.example` updated (`R2_PUBLIC_BASE_URL` dropped — no longer read anywhere), the backfill script prints private-mode guidance. Verified without real B2 credentials: a presign smoke test minted a correct B2 path-style SigV4 URL (X-Amz-Expires=518400, region us-west-004), `scripts/verify-storage.ts` ALL PASSED, `tsc --noEmit` + eslint clean, live route QA (health 200, bogus key 404). APP_VERSION 2.8.65.0 → **2.8.66.0**. |
-| 2.8.65.0 | **THE B2 BANDWIDTH ROUND — images leave the app server** (owner: "B2 ekata code eka ready da? images okkoma B2 eken enna one, mokada naththan versel bandwidth case"). The owner caught what 2.8.64.1's audit under-called: the "database" media driver is Vercel-RUNNABLE but serves every image byte Supabase → Vercel function → visitor, burning Supabase egress AND Vercel bandwidth. **① Driver ready for Backblaze B2** — the S3 driver was already generic; `R2_REGION` is now honoured (B2's Signature V4 needs the bucket's real region, R2's "auto" stays the default) and the config/docs name B2 explicitly. **② The public/private split** — new `PRIVATE_KEY_PREFIXES` (`lms-work/` submissions·materials·notices, `lms-people/` profile photos, `lms-chat/` Q&A+chat) + `getPrivateStorage()` (ALWAYS the database driver): all 17 upload/serve/delete call sites for those prefixes moved off `getStorage()`, so student work can NEVER land in a public bucket while site images do. **③ /api/media/file became a bandwidth firewall** — under an S3 driver it 302s browsers straight to the provider URL for backfilled objects (`s3_migrated_at` stamp: new schema column + schema-extras DDL), streams the DB copy as fallback while a backfill is still running (the site never breaks mid-migration), 404s private keys through this public door (a pre-existing unauthenticated hole, closed), 404s unknowns; local/database behaviour byte-identical (live: crest master → 200 image/webp 337 KB, private key → 404, bogus → 404). **④ scripts/media-backfill-b2.mjs** — idempotent one-command migration: DB → B2 with HeadObject size verification, --dry-run/--limit flags, keeps DB copies as a free backup, skips private prefixes, honest summary; env guard verified (clean failure without B2 config). **⑤ next/image allows B2 hosts** (`**.backblazeb2.com` remotePatterns) + the `.env.example` B2 mapping + a full B2 runbook in DEPLOY-VERCEL.md (bucket/app-key creation, the Vercel env block, backfill commands, and an honest note on what still transits Vercel). eslint baseline; src tsc clean. APP_VERSION 2.8.64.1 → **2.8.65.0**. |
-| 2.8.64.1 | **THE SHIP-IT ROUND — production pre-flight before the first real build** (owner: "production test ekak karala imuda, mata zip ekak denawada — vercel eke thama host karanna hithan inne, ehema bari unoth vps ekaka"). Readiness audit against the deploy target: **① two build-breakers found and fixed** — `next build` runs `tsc` (the dev server never does) and two things were waiting to fail it: the sandbox scaffolding dirs (`examples/`, `skills/`, `mini-services/` — socket.io / z-ai-sdk demo files that are not part of the app) sat inside tsconfig's include (now excluded), and v2.8.64.0's rollover manager carried 21 real TS errors (`data.lastRollover` property-narrowing lost across the `undoResult \|\|` JSX guard) — fixed with a narrowed `lastRollover` local, zero UI or behaviour change; `bun run typecheck` now exits clean. **② DEPLOY-VERCEL.md** — the deployment guide: env-var sheet (SITE_DATABASE_URL / SUPABASE_URL / SUPABASE_ANON_KEY / PUBLIC_SITE_URL; MEDIA_STORAGE_DRIVER deliberately unset → the "database" driver serves every image out of `media_blobs` in Supabase so nothing touches the ephemeral Vercel filesystem), private-repo → Vercel import steps, function-region hint, and the VPS plan B (`bun run build && bun run start` behind a reverse proxy). **③ Source zip for the owner** — `git archive` of the sealed tree (secrets can never be inside: `.env*` is gitignored; the stale PGlite fallback dir `db/` and the sandbox `upload/`+`download/` dirs are excluded) to push to the private GitHub repo Vercel imports. Verified against the live DB: all 65 tables (CMS + LMS + auth sessions + media blobs + signatures) already live in Supabase — the app has been 100% off the local filesystem since the DB-media round. APP_VERSION 2.8.64.0 → **2.8.64.1**. |
-| 2.8.64.0 | **THE ROLLOVER UNDO ROUND — the "ran it too early" button, born from a live incident** (owner, 22 Oct 2026: "classes sync eke waraddak thiyanawa wage. 6-A eke inna lamai 7-A kiyalane teachers dashboard eke pennane" — the kids really in 6-A were showing as 7-A on the teacher dashboard). ROOT CAUSE: the academic-year rollover had been RUN at 15:44 that day (audit trail: 14 moved, 4 graduated, 38 classes created) — it moved every active enrollment into the 2027 classes and copied the teaching assignments across, so teachers instantly saw next-year class names with the same children; the data was the "bug", not the dashboard query. THE FIX — a full UNDO: new `POST/GET /api/admin/lms/rollover/undo` reverses the last run for a target year inside ONE transaction — every ACTIVE enrollment in a target-year class moves back one grade with the same section (7-A → 6-A, 13-S-1 → 12-S-1, the exact inverse of promote), graduated/left rows moved into a target-year holding class are always restored and old-year leaver rows are re-activated on an explicit checkbox (scoped to students with no other active enrollment), the 49 copied class_subjects rows are removed (referenced ones kept), and every target-year class left with no students/subjects/history (timetable, attendance, notices, report cards) is deleted — HONEST LIMIT built in: a run that used "repeat" exceptions REFUSES the undo (a repeater would go back one grade too far) and missing previous-year classes abort before anything is written; every undo lands in the audit log (`lms_rollover_undo`). THE UI — the rollover wizard grows a red danger card fed by a new `lastRollover` block in the workspace GET (run date, moved/graduated/classes counts, restorable leaver count, whether the target classes still exist): type-the-year confirm, the checkbox when leavers exist, an honest "cannot undo automatically" panel for repeats, a green result panel (students moved back / leavers restored / subject copies removed / classes deleted) that stays readable after the workspace reloads, and the wizard's year rolls back to the restored current year on success. QA ON THE LIVE INCIDENT: preview returned exactly 13 rows to move + 4 leavers + 0 blockers → the API undo ran (movedBack 13, reactivated 4, subjectsDeleted 49, classesDeleted 38, classesKept none) — 6-A back to 6 children, the 6-A class teacher's teaching rows show only 6-A(2026)·ICT again, all 18 enrollments active, 0 graduated, 0 2027 classes/subjects; then a fresh mini-rollover (6 promoted, 1 class) was undone END-TO-END IN THE BROWSER (card → type 2027 → Undo → workspace reloads with "Every class of 2026", card retires) — QA admin account deleted after. Survived 3+ kernel OOM kills during the round (owner browsing + compile storms). APP_VERSION 2.8.63.0 → **2.8.64.0**. |
-| 2.8.62.0 | **THE OWNER'S FIVE-REQUEST ROUND — digital report card + academic-year rollover + README revival**: **① Digital terminal report card** — the school's paper report card digitised one sheet per student per year: the exact paper structure (Subjects × First Test / Mid Year Test / Year End Test; Total, Average, Average of the First in Class, Number of Students in the Class, Position of Student, Attendance per column; three term blocks with Special Remarks (a) Studies (b) General Conduct; the three signature lines) — ONLY the class teacher edits (draft → Save & publish), students and parents read the published sheet with a Print button; class summary rows are COMPUTED from the class's published sheets at read time so they can never go stale (`lms_report_cards` / `lms_report_marks` / `lms_report_terms`). **② Academic-year rollover** — LMS Admin → Academic year: a four-step promotion wizard (target year → per-class plan promote/graduate with target grade-section + new class teacher → per-student exceptions Repeat/Left → typed-confirm run) inside one DB transaction; idempotent reruns, subject assignments carried, O/L (grade 11) and A/L (grade 13) graduation, leavers marked; class creation's dup-check is now year-aware; teacher class lists drop rolled-over empty classes. **③ README.md revived** — the changelog the owner thought was "off" was only living in README-NEW.md; this file now carries the full version history and both files update together at every release. **④ Navbar crest hardened** — the browser remembers the last good crest (localStorage) and shows a NEUTRAL circle while the crest state is unknown, so a cold server hiccup can never paint the golden "S" disc again; admin theme/logo persistence re-verified. **⑤ Registration & register simplification** — student registration now REQUIRES only admission no + name + class (register no / parents' names optional, verified when typed); office register rows need only the essentials; parent verification on a blank register name goes to the office queue with an honest reason. |
-| 2.8.40.1 | **Owner 7-bug patch round**: (1) image uploads died with `Unexpected token 'S', "Server act"… is not valid JSON` — the multipart proxy route `/api/admin/media/upload` had been dropped in the Supabase-restore churn while media-picker/library still posted to it; the route is restored (validate → processAndStoreImage → JSON, local driver) and a live browser upload verified end-to-end (gold test PNG → WebP variants → auto-selected URL, asset + files cleaned up after). (2) /maintenance social glyphs hard-coded `#1d1d1f` on the white discs in BOTH themes + new `MaintenanceCrest` client island: a CMS crest URL that fails to load now falls back to the inked shield instead of showing a broken-image icon (the owner's screenshot hit exactly that with a stale local-driver URL). (3) the maintenance editor is ONE card now — the "Message shown to visitors" textarea moved out of the Site-availability card (which keeps only the switch) into "Maintenance page content" right below the sub-line, and one Save-and-publish button writes both the settings keys and the duty message. (4) LMS studio MOBILE BLACK SCREEN root-caused: the portalled side-panel drawer, when closed, was an opacity-0 backdrop WITH `backdrop-blur-sm` inside a `fixed inset-0` wrapper — a live backdrop-filter layer composited black over the top of the page in mobile Chrome; closed state is now `visibility:hidden` + no scrim blur, so it paints nothing. Mobile header shows just brand + hamburger (account chip lg+, sign-out in the drawer). (5) portal nav is a real sliding tab bar: a measured gold pill (transform+width transition) glides to the clicked Dashboard/Timetable/Homework/Marks/Notices item on student, teacher AND parent portals (optimistic client state, syncs on real-route changes, resize/font re-measure). (6) teacher dashboard rebalanced — left column pairs Today's Lessons with Teaching Performance (no more empty hole), right column keeps rosters + classes, Teaching Load full-width, Marking Queue ‖ Class Notices closing pair. (7) mobile portals finally have navigation: a hamburger opens a portal-themed floating drawer (sections + Profile + theme toggle + sign-out, portalled to body, visibility-gated closed state) and the avatar chip is a Profile link on every size; verified student/teacher/parent at 390px (teacher drawer reaches the attendance register, profile pages reachable) |
-| 2.8.49.0 | **PHASE 1.2 — teachers can EDIT what they posted (assignments / materials / notices)** (the work-list item after 1.1+1.3): teachers no longer delete-and-repost to fix a typo. **(1) ASSIGNMENT EDIT** — `updateAssignment` + `PATCH /api/portal/assignments/[id]`: every field optional, `undefined` always means "keep what is there" (a partial patch can never wipe data); **the approved safety rules are enforced server-side** — with ZERO submissions everything is freely editable INCLUDING moving the class×subject (ownership of the new pair re-checked), but once students have submitted the class×subject is LOCKED ("Students have already submitted work — the class can no longer be moved." — the register roster is pinned to it) while title / instructions / due date / attachments stay correctable. Attachments reconcile IN PLACE: kept keys reuse the stored rows (no re-upload), removed keys lose their rows AND their stored bytes (blob delete verified), new keys must be fresh uploads — `assertKeysAreFresh` rejects any key already attached to another post or a student submission (cross-attachment probe → 400). The submissions-register panel grows an "Edit this work" toggle with a prefilled form (title/instructions/due as datetime-local/class·subject select that disables itself with a "class locked — students already submitted" note once submissions exist/attachment uploader + link field); the due date prefills with a NEW server-computed `dueAtInput` (serverLocalInputValue — the datetime-local string that parses back to the exact same instant, zero timezone drift on an untouched save) and `TeacherAssignmentDetail` now carries `classSubjectId`/`dueAt`/`dueAtInput`. **(2) MATERIAL EDIT** — materials have no submission lifecycle so everything stays freely editable: `updateMaterial` + `PATCH` + NEW `GET /api/portal/materials/[id]` (the edit-dialog payload, posting-teacher-only via the class_subject ownership check) — title/link/files edit in place, the class×subject CAN move and the anchored lms_material_files rows follow it; "attach at least one file or a link" still guards the stripped-empty case. The materials page gains a pencil action per card that swaps the card for an inline edit form seeded from the GET (class select, title, uploader seeded with existing chips, link field, Cancel/Save). **(3) NOTICE EDIT** — `updateNotice` + `PATCH /api/portal/notices/[id]`: POSTER ONLY (server-checked: a different teacher who merely leads the class gets "Only the teacher who posted this notice can edit it." — they can still DELETE others' notices per the old rule); title/body/board-move all optional with the same undefined-meeps-keep semantics, the board can move to any class the teacher teaches or leads; the notices board grows a pencil on "posted by you" rows swapping in an inline edit form. QA (API matrix over minted maintenance-bypass sessions, all QA rows purged to leftovers 0): assignment create → detail shows classSubjectId/dueAt/dueAtInput → PATCH title+instructions+dueAt → class move 57→21→57 (0 submissions, both ways) → foreign csId 999999 → 400 → files [f1,f2] → GET 2 → [f1] → GET 1 + f2 row AND blob gone from DB → cross-attach K1 on a 2nd assignment → 400 → student submits → class move → 400 with the locked message while title still saves → student-session PATCH 401; material link-only create → GET detail → PATCH title+file → class move (file row's class_subject_id follows, verified) → strip-everything 400 → student PATCH 401; notice PATCH as poster 200 → non-poster teacher 400 → student 401; agent-browser SSR over the maintenance bypass: /teacher/materials + /teacher/notices render the new "Edit …" aria-labelled buttons, /teacher/assignments + materials clean at 390px (no h-scroll), zero page errors |
-| 2.8.48.0 | **PHASE 1.1 + 1.3 — register EDIT + class-teacher CALL/WhatsApp** (the work-list items the owner picked in order). **(1) RECORD EDIT** — the owner's report ("aluth student record ekak add karama eke details edit karanna ba ne, delete karanna witharai puluwan"): `PATCH /api/admin/verification-records` ({ type, id, ...fields }) updates student rows (fullName, registerNo, className, father/mother, phone, email) and teacher rows (fullName, email, phone, designation) with full validation + `student_record_updated`/`teacher_record_updated` audit logs; **identity columns are LOCKED server-side** — admissionNo verifies portal registrations and links the lms_students person, teacherId verifies teacher accounts (a spoofed admissionNo in the body is silently ignored — verified). A CLASS CHANGE on a student moves their active enrollment to the class of the same name (latest academicYear wins) so attendance/homework/marks rosters follow the register, with calm fallback notes when the target class doesn't exist yet or the student isn't enrolled (the office can still move them from LMS Setup → Enrollment, which already re-enrolls-as-move). The manager gains a pencil Edit action on EVERY row opening the dialog prefilled with the identity field visibly locked ("Admission number is locked — it identifies this student everywhere"); saves update the row in place and flash the outcome (including the enrollment-moved / create-the-class-first notes). **(2) TEACHER CONTACT** — the owner's ask ("parent portal eke profile section eke class teacherge contact number ekak dammanam hodai… whatsapp or call ekata yanna"): `classInfo()` now also reads the staff register's phone, `ProfileChildView`/`PortalProfile` carry `classTeacherPhone`, and the profile page renders two tap-to-contact chips under the Class Teacher row for parents (each linked child) AND students (own class) — `tel:` opens the dialler, `wa.me` opens WhatsApp with the number normalised Sri-Lanka style (0771111666 → wa.me/94771111666); the chips exist ONLY on the register-linked profile (class members see only their own class teacher), and nothing sends until the user types the message. LMS-setup search box, light-theme token pass, Studio mobile drawer fix, Settings→Profile rename and the portal nav/grid polish from the old backlog were verified ALREADY DONE in v2.8.39–40.1 (no duplicate work). QA: full PATCH matrix via API (create temp student → edit name/phone/register → class change 13-A-2→13-A-1 → spoofed admissionNo ignored → missing-fields 400 → temp teacher edit → audit rows written → all temp rows + audit purged, leftovers 0); /student/profile over the maintenance bypass renders "Call" (`tel:0771111666`) + "WhatsApp" (`wa.me/94771111666`) for 6-A's teacher Sumudu Edirisinha from the staff register; QA session purged; lint clean on all four touched files |
-| 2.8.47.0 | **Image-apply bug FIXED for section image fields (Phase 0.1)** — the owner's long-owed report ("select karana image eka site eke adala thanata apply wenne na") re-verified from scratch and root-caused for real this time: the CMS field definitions promise a picker ("Feature image" on the About section, "Principal image" on the Principal's Message) and the inspector dutifully saves the picked URL into the section data, but **the rendering components never read it** — `AboutUs` hard-coded `/images/about.jpg` and `PrincipalMessage` hard-coded `/images/principal.jpg`, so the pick was written to the DB and then ignored at render forever (the owner's Oct-20 element-patch workaround — a fragile `main > div > section:nth-of-type(3) > …` structural selector published through the element-level editor — was the only thing forcing a visible change, and it fought the section mechanism). Fix: both components now render `content.image ?? <default>` through the shared `SiteImage` (fallback-to-default on error, next/image optimization) and carry stable `data-visual-key` ids (`home-about-image`, `home-principal-image`) so the element editor targets them forever instead of generating brittle nth-of-type chains. The broken element patch on `/` was removed (it hard-forced hero.jpg over everything), and the owner's demonstrated intent (About = "Hero Campus View") is preserved the PROPER way — the about section data now carries `/images/hero.jpg` and it renders on the live site from section data alone. Verified end-to-end without touching UI clicks: PATCH section data → publish → anonymous-visible SSR shows the exact `data-visual-key="home-about-image"` img with the picked URL (`/_next/image?url=%2Fimages%2Fsports.jpg…` during the round-trip, hero.jpg after revert) — the same API calls the Feature-image picker issues. Note: React 19/Next 16 hydration never mounts in the sandbox's headless Chromium (renderers:0 on every page incl. /admin/login — an environment quirk, the owner's real browsers hydrate fine), so UI-level clicks couldn't be scripted; SSR/data-level verification is deterministic. Investigation artifacts (DB probe scripts, temp admin session row) cleaned up |
-| 2.8.46.0 | **PHASE 3.2 — parent portal depth (homework visibility + marks detail)**: parents now see their children's classroom life, strictly READ-ONLY, on top of the same ownership chain the dashboards already trust (`lms_parents → lms_parent_children → lms_students → active enrollments`). (1) NEW LIB `portal-parent-children.ts` — `getLinkedChildren`/`getLinkedChild` (THE guard: every reader re-verifies the child really is in THIS parent's links), `getParentChildHomework`/`getParentChildHomeworkItem` (the read-only mirror of `getStudentHomework`: teacher brief + files + link, the child's text/files/link, submitted label, late flag, score + feedback, duePassed computed server-side) and `getParentChildMarks` (every scored mark joined to its assessment — subject, term, max — grouped into canonical Term 1→3 groups with per-term averages, subject averages and an overall %; unmarked rows excluded). (2) PARENT PAGES: `/parent/homework` hub (1 child → auto-redirect, N children → pick-a-child card wall), `/parent/homework/[childId]` launcher list (status chip + Late, due line, file-count badge, inline score), `/parent/homework/[childId]/[assignmentId]` full read-only detail (What-to-do, From-the-teacher chips, "{child}'s answer", Grade card, sticky At-a-glance + Good-to-know rail, friendly cards for unknown/un-linked ids), `/parent/marks` hub + `/parent/marks/[childId]` marks sheet (Overall % / Assessments / Best subject / Terms stat cards, per-term sections with avg chips and score/max + pct chips, Subject-averages bars) — shared `parent-child-ui.tsx` renders the child header with homework⇄marks cross-links, the kid-switcher pills and the pick cards. (3) DASHBOARD: nav grows Homework + Marks pills; each ChildCard gains Homework/Marks deep-link pills (`ParentChild` now carries `studentId`); ChildCard component extended with an optional `actions` slot (teacher roster unaffected). (4) FILE SERVING: `/api/portal/assignment-files/object` now also serves lms_assignment_files to a parent whose linked child is actively enrolled in that class, and lms_submission_files to the parent of the owning child — upload route stays student/teacher-only (parents never write). E2E agent-browser over the real parent login (temp QA parent linked to Oshada): login → dashboard pills → auto-redirect → list shows ONLY 6-A work → detail (pending + file → parent fetch 200 application/pdf; unknown key 404) → graded hix (score 60 + feedback + answer) → marks sheet (Overall 87%, Term 1 avg 87%, ICT 87% bar) → guards (foreign child friendly card, /parent/marks/999 friendly card, teacher API 401 with parent session) → 2nd-child link proves chooser wall + switcher pills + per-class lists; 390px mobile + dark AND cream light themes clean; dev.log clean; ALL QA rows purged (temp account/parent/link/assessment/mark = 0, maintenance restored ON) | 
-| 2.8.45.0 | **PHASE 3.1-e — marks, materials & notices posting**: the teacher-side authoring half of the classroom lands on the tables that waited since 3.1-a. (1) MARKS (/teacher/marks): create a Term 1/2/3 assessment for one of your class×subjects (title, max score ≤1000), then the marks register opens — every actively-enrolled student LEFT JOIN their mark, per-student score inputs (0..max, empty = clear), one "Save register" bulk upsert on the (assessment, student) unique index so re-saving simply corrects, live "x/y marked" + class-average chips, delete-assessment (marks go with it). (2) MATERIALS (/teacher/materials): hand out notes/worksheets/videos — N files through the SAME storage pipeline as assignment attachments (lms-work/ keys, 8×20 MB allowlist) + one reference link; new lms_material_files table (idempotent DDL, applied live); delete cleans file rows AND stored bytes. (3) NOTICES (/teacher/notices): post title+body to any class the teacher teaches OR leads; the board lists everything on those classes with "posted by you" badges; poster or class teacher may remove. (4) NEW LIB portal-classroom.ts + guarded APIs /api/portal/assessments[/id][/marks], /api/portal/materials[/id], /api/portal/notices[/id] — teacher-role checked, class_subject/class ownership re-verified server-side on EVERY call, enrollment re-checked for every saved mark; the shared /api/portal/assignment-files/object route now also serves material files (posting teacher, enrolled students, LMS admin). (5) STUDENT DASHBOARD gains the Class Materials panel (file chips + links) and marks flow the existing Recent Marks panel now that teachers can post; teacher nav grows Marks/Materials/Notices pills (Notices is the posting page now, NAV_ICONS gains Materials=BookOpen). E2E agent-browser over the maintenance bypass: assessment create → register → Oshada 87 saved → list chip 1/5 marked avg 87% → student dashboard shows 87/100; material with txt file + link → student panel chips + guarded file 200 text/plain; notice → student Class Notices; pure-student guard matrix 401×8; 390px mobile clean both portals; ALL QA rows + blobs purged (assessments/marks/materials/files/blobs = 0, owner notices untouched) | 
-| 2.8.44.0 | **Homework gets its own page — the dashboard popup is retired**: the owner’s call ("ida madinam wenama page ekakata redirect wela ethana assignment eka karanna. galapeni ekak karanna") — tapping a homework row on the student dashboard no longer opens the cramped popup sheet; it ROUTES to a dedicated full page at `/student/homework/[id]` (server component; the item is picked from the SAME `getStudentHomework` list the dashboard renders, so ownership is implicit — a wrong/foreign id lands on a friendly "This homework isn’t available" card inside the portal shell). The new page is spacious and two-column on desktop: back-to-dashboard pill, big header card (subject · class overline, display-size title, status + Late + submitted-label chips, due line), the "What to do" instructions card, "From your teacher" attachment chips + link, the big 10-row answer textarea with the attachment uploader + link field and a full-size Submit/Re-submit button (re-submit until graded, late computed fresh at submit time), and a sticky right-rail "At a glance" card (status/subject/class/due/submitted/score + a "Good to know" tips card) that stacks under the workspace on mobile. Graded work renders the locked view (score card + feedback + no form). `StudentHomework` is now a pure launcher list (rows are `<Link>`s with a hover-chevron; the modal sheet and its state machine are deleted). `duePassed` is computed server-side in `getStudentHomework` so the client island never calls `Date.now()` during render (React-compiler lint). E2E with agent-browser over the maintenance bypass: dashboard row → /student/homework/12 → submit → Submitted · Just now + flash + Re-submit state → /student/homework/18 graded view (score 60 + feedback, locked) → /student/homework/999 friendly card → 390px mobile stacks cleanly; QA submission purged afterwards (Lab report back to exactly the owner’s Pending state) |
-| 2.8.43.0 | **Assignment attachments — files both ways + login-form fix**: the classroom loop gains real hand-ins and hand-outs. (1) **Teacher attachments**: the "Post an assignment" composer carries an Attachments card — multi-file upload (up to 8 files, 20 MB each: PDF, Word, PowerPoint, Excel, Access, images, video, audio, ZIP) plus an optional reference link (http(s)/mailto — Drive, YouTube, email); posted work shows file chips (icon + name + size, tap to open in a new tab) in the register and a paperclip+link count badge on every list card. (2) **Student submissions**: the Homework sheet's answer box is joined by the same uploader + link field — text, files, link or ANY combination counts as an answer; a re-submit REPLACES the whole attachment set (old blobs deleted from storage); the sheet shows "From your teacher" (instructions' attachments), "Current submission" while ungraded, and "What you submitted" + score + feedback in the locked graded view; the teacher register's "Read the answer + files" expands the student's text with their file chips + link. (3) **Pipeline**: bytes ride the SAME provider-neutral storage layer as site media (database driver → `media_blobs`, so files survive restarts) under a dedicated `lms-work/` key prefix; new `POST /api/portal/assignment-files` (student/teacher session guard, extension+size allowlist, UUID keys) uploads them and `GET /api/portal/assignment-files/object?key=…` serves them authorization-checked — assignment files open only to the posting teacher, enrolled students and the LMS admin team; submission files only to the submitting student, that teacher and LMS admins (bogus/unattached keys 404; verified matrix: 200/200/404/403/403/200/200). New tables `lms_assignment_files`/`lms_submission_files` + `link_url` columns (idempotent schema-extras DDL + drizzle schema). (4) **Portal identity bridge fallback**: `ensureTeacherPerson`/`ensureStudentPerson` now trust an ALREADY-LINKED person row when the account carries no verification snapshot — the owner's T-078 teacher identity (seeded linkage, null snapshot) previously showed "teaching subjects are not set up yet" and an empty hub; now the real class×subject list loads. (5) **Admin login form fix**: the login mode's password field kept the SETUP-mode `minLength={10}`, so the native validator silently refused to submit shorter stored passwords (Stc@2007); login now accepts 6+ (setup keeps 10+). E2E verified with agent-browser over the maintenance-curtain bypass (admin session): teacher post (2 files + Drive link) → student sheet shows attachments → student submits text + txt file + mailto link (201) → DB rows + blobs verified → authorization matrix → grade 92 + feedback → student locked graded view renders everything. All QA rows/accounts/sessions/blobs purged (leftovers 0) |
-| 2.8.42.0 | **PHASE 3.1-d — assignments & submissions depth + the maintenance-crest media fix**: (1) THE BUG the owner hit ("select karana image eka site eke adala thanata apply wenne na"): the maintenance middleware 503'd every non-exempt `/api/*` while the curtain was up — and the maintenance screen itself renders the CMS crest through `/api/media/file`, so EVERY crest the owner picked silently failed to load and `MaintenanceCrest` fell back to the shield mark (the owner published 6× and toggled the curtain 6× fighting it; my own checks passed only because the admin session bypassed the gate). **`/api/media/file` is now exempt** in `src/middleware.ts` (public, read-only byte server) — verified as an anonymous visitor with maintenance ON: page 200, crest `200 image/webp` through :3000 AND the :81 gateway, other APIs still 503, homepage still redirects. (2) **3.1-d SHIPPED** on the `lms_assignments`/`lms_submissions` tables that had waited since 3.1-a — the full classroom loop: teacher posts work (class×subject picker, title, instructions, optional Colombo-timezone due date) at the new **/teacher/assignments** hub (`src/lib/portal-assignments.ts` + `/api/portal/assignments[/id]{,/submit,/grade,/retire}`), the register shows EVERY enrolled student joined left with their submission (Not submitted / Submitted (+Late flag) / Graded), inline "Read the answer", score (0–1000) + feedback grading with re-grade ("Update"); students get the interactive **Homework panel** (`student-homework.tsx` sheet: instructions, answer box, submit / re-submit while ungraded, the late flag computed against the due date, then the locked graded view with score + feedback); the teacher dashboard Marking Queue rows deep-link to `?focus=<id>` which auto-opens the register; retiring soft-deletes (rows kept). Ownership enforced server-side everywhere (teacher ⇒ own class_subjects, student ⇒ own enrolled class; graded work locks). QA'd live with temp accounts: post → submit → re-submit → grade → student sees score/feedback → queue deep-link → retire → guards (401/403/not-found/locked) — all cleaned (leftovers 0) |
-| 2.8.41.1 | **Upload route resurrected (again) + client-side parse hardening + LMS header contract**: (1) the v2.8.41.0 storage-driver commit DELETED `/api/admin/media/upload` while presign still answered `mode:"proxy"` for the new default `database` driver — every upload 404'd and the clients' `result.json()` died with `Unexpected token 'S'/'<' … is not valid JSON` (the exact regression v2.8.40.1 had fixed, re-introduced by the durability work). Route restored (`guardApi media:edit` → formData validate → `processAndStoreImage` → JSON, bytes land in `media_blobs`) and its doc comment now records the rule: **presign's proxy branch and the upload route MUST ship together**. (2) `media-picker.tsx` + `media-library.tsx` parse every upload response through a new `parseJsonOrUploadError()` helper — a non-JSON server answer (route missing, proxy 404/405, HTML error page) now produces a clear message ("server answered NNN with a non-JSON response") instead of the cryptic SyntaxError. Verified end-to-end: the owner's own live upload (crest PNG → asset 43, `provider:"database"`, 5 WebP variants) plus a synthetic multipart POST (asset → JSON → blobs) and the no-auth guard path (401 JSON, was 404 HTML). (3) LMS Admin Studio header contract now matches the portals on EVERY breakpoint: the right side carries ONLY the side-panel button (theme toggle, account chip and sign-out were still desktop-only header residents) and the panel button lost `md:hidden` so the drawer — which already holds profile/theme/sign-out — opens everywhere. (4) Supabase env restore after the sandbox restart (proven runbook; backup copies + remote file refreshed). All six owner-reported bugs re-verified live in the browser: student Timetable/Homework/Marks/Notices + teacher Attendance/Timetable + parent Notices/Children all navigate from the profile page with the gold pill syncing, headers measure 80px (portals) / 72px (LMS) at 390px, LMS badge sits inline with the name with an avatar image present, maintenance Sub-line renders the owner's text. QA accounts/sessions/probe asset removed after verification (leftovers 0, owner's asset 43 untouched) |
-| 2.8.41.0 | **Owner 6-bug round — media durability + portal polish**: (1) THE image flow is fixed for good: media BYTES used to live on the sandbox disk (`.data/media`) while their metadata lived in the region DB, so every restart wiped the files and every previously-applied image 404'd ("images apply wenne na"). New **`database` storage driver is now the default** — a `media_blobs` table (bytea) in the same region DB holds the object bytes next to their metadata, served through the same `/api/media/file?key=…` URLs; `DatabaseMediaStorage` implements the shared contract (put/get/delete/getPublicUrl, 24 MB cap, key-safety via `assertSafeObjectKey`), presign answers proxy-mode for it, `/api/media/file` serves it, and a one-shot `scripts/migrate-media-to-db.mjs` (idempotent) copied the surviving local files into blobs, deleted the 39 dead assets (+ variants/usage) and re-pointed every dead content reference (posts/staff/stream_teachers/gallery/old_thomians + site_identity JSON) onto the static `/images/*.jpg` fallbacks — verified LIVE: admin upload → asset stored `provider:"database"` → thumbnail 200 image/webp through the gateway. (2) the maintenance **Sub-line finally applies** — the duty message stored with the maintenance switch (which always had a non-empty default) used to override it; the sub-line now WINS on the screen and is the editor's single body-text field ("Sub-line (the message shown to visitors)"), the separate duty-message textarea is gone. (3) the LMS Admin badge on the Profile page sat pushed-right on its own wrapped row; it now sits INLINE right after the name. (4) header heights: LMS studio header row 64→72px, all three portal headers 72→80px (owner: "height eka poddak wadi karanawada"). (5) **anchor nav works from every portal page now** — section links are dashboard anchors, so from a profile page clicking Timetable/Marks/… only moved the pill; `PortalShell` now navigates to the portal home WITH the hash when the section isn't on the current page, a deterministic 220ms hash-landing routine glides the section under the 80px header (the global `scroll-behavior:smooth` made the browser's native hash scroll lose the hydration race — parent portal landed 0–16px short) and the matching pill lights up; the teacher profile nav was MISSING Attendance entirely (added) and the attendance register nav was missing Notices (added). (6) **portal header = brand + pill + ONE button**: profile, theme toggle and sign-out live in the side panel, so the header's right side is just the side-panel button on every breakpoint and the drawer is no longer mobile-only. Verified end-to-end with agent-browser: maintenance page (sub-line + 5 black-on-white social glyphs), upload E2E, LMS profile badge geometry + 72px header + 390px no-overflow, student/teacher/parent anchor navigation with pill sync (profile → section), 80px headers, mobile drawer |
-| 2.8.40.0 | **Owner 6-point round (portals + maintenance + LMS studio)**: (1) `/maintenance` rebuilt Apple-style — centered column, school crest in a WHITE circle (glyphs stay dark in both themes), hairline indeterminate bar, social row (FB/IG/YT/Threads/X) each in white circles, light + dark auto via `prefers-color-scheme` (`.maintenance-scope` tokens); headline, sub-line, crest and every social URL now editable from MAIN Admin Studio → Settings → "Maintenance page content" via the same `SITE_SETTINGS_DEFAULTS` pipeline as the preloader (`siteMaintenanceTitle/Subtitle/Logo/ShowSocial/Facebook/Instagram/Youtube/Threads/X`, published through PATCH `/api/admin/settings`). (2) LMS studio mobile side panel de-transparised — the portalled drawer sat outside `.lms-admin-scope` so every `--la-*` token resolved to nothing; the drawer wrapper now carries the scope class (solid dashboard theme) and was restyled as a floating rounded-3xl card; header theme toggle is desktop-only (mobile keeps just the hamburger; the toggle lives in the drawer footer). (3) "Settings" renamed **Profile** (`/lms-admin/settings`): identity card, sign-in method (Google-only vs email+password from `password_hash`), last login (Colombo time), signed-in devices (UA-parsed browser/OS + Colombo timestamps) and a guarded "Sign out other devices" action (`POST /api/lms-admin/profile/sessions`, current session can never revoke itself). (4) LMS studio responsiveness: the five LMS Setup tables scrolled the whole page horizontally on phones — wrappers now `overflow-auto` (both axes), page-level overflow eliminated. (5) Student dashboard order fixed: My Subjects now sits above Class Notices; Class Notices is always the final grid. (6) Teacher dashboard reordered to the owner's spec: rosters + classes up top, then Teaching Load → Marking Queue, with Teaching Performance ‖ Class Notices closing the page; My Class Rosters gained a name/admission search + a scroll-bound wall (50-student classes stay navigable); the attendance register now shows roster-style avatar photos + register numbers (joined from `lms_student_records`) with a name/admission/register search bar; below it a strictly READ-ONLY Attendance History panel (Daily/Weekly/Monthly/Yearly windows, per-day + per-student tables, GET-only `/api/portal/attendance/history`, no edit path anywhere). (7) Portal dashboards: in-page nav items glide (smooth `scrollIntoView`, reduced-motion safe) instead of jumping, and the shared portal header grew to 72px with roomier pills — school site + main admin untouched |
+*(Full v2.8.16 → v2.8.60 history: see README-NEW.md.)*
+
+> **Current implementation status:** Phase 1 is complete. Phase 2 content managers and universal visual editing are functional. Phase 2.1 backup/environment foundations and the provider-neutral local/MinIO/R2 media foundation are now implemented.
+>
+> **Important:** Cloudflare R2 is **not required for development**. The default driver is local filesystem storage. MinIO can be enabled without a credit card; R2 is an environment-only production switch when billing access becomes available.
+>
+> Do not begin a later migration phase without reading the migration sequence, rollback plan and Definition of Done in this document.
+
+---
+
+## Implementation Progress — Current Build
+
+### Completed
+
+- [x] Phase 1 visual CMS, drafts, publishing and revisions.
+- [x] Universal full-site element editor.
+- [x] Structured News, Events, Gallery and Staff managers.
+- [x] Persistent custom content collections/categories.
+- [x] Phase 2.1 environment template and secret-safe `.gitignore`.
+- [x] Database backup, restore and schema/row-count report scripts.
+- [x] Provider-neutral media storage contract.
+- [x] Local filesystem media adapter (default development mode).
+- [x] S3-compatible MinIO adapter.
+- [x] S3-compatible Cloudflare R2 adapter (configuration-ready; credentials not required during development).
+- [x] Direct signed PUT upload support for MinIO/R2.
+- [x] Local multipart development upload fallback.
+- [x] Authoritative Sharp image validation and WebP processing.
+- [x] EXIF/GPS removal, auto-orientation and safe pixel/file limits.
+- [x] Thumbnail, small, medium, large and master variants.
+- [x] Duplicate detection using SHA-256 content hashes.
+- [x] Media asset, variant and usage metadata tables.
+- [x] Categorized, mobile-first Media Library with upload progress, details, variants, filters, trash and restore.
+- [x] Phase 2.8 reusable Media Picker (browse, search, folder-first context, inline upload).
+- [x] News cover and Gallery frame fields integrated with the Media Picker; manual URLs kept for migration compatibility.
+- [x] Universal visual editor image inspector integrated with the Media Picker.
+- [x] `media_usage` synchronisation for posts, gallery frames and visual page patches (draft + published).
+- [x] Usage locations shown in the asset detail drawer; used assets are blocked from trashing (server 409 + disabled UI).
+- [x] v2.8.16 **central logo registry** — every crest/logo syncs by ID site-wide (admin manager `/admin/logos` + visual-editor logo size slider); editor-exit no longer blocks the admin dashboard; dedicated category-based **Online Resources** section (`/admin/resources`, public `/resources`).
+- [x] v2.8.17 **storage layer restored** — the missing `@/lib/storage` module (root cause of "cannot upload custom images") is back: local filesystem driver under `.data/media` served via `/api/media/file`, S3-compatible MinIO/R2 adapter with presigned direct uploads, and the multipart `/api/admin/media/upload` endpoint. Uploads verified end-to-end (API + UI modal → WebP variants → serving).
+- [x] v2.8.18 **admin studio upgrade (10 requests)** — falcon emblem (changeable, drops in like a crest), realtime logo preview, grouped sidebar sections, dedicated Footer section (Settings = falcon + preloader), cadeting preloader system, photographic dashboard, image zoom sliders everywhere, staff photo preview fix, news Images/Links/Videos toggles (5 photos max) with public rendering, unit-gallery "+" add dialog (images + title + sentence).
+- [x] v2.8.19 **calm emblem, per-unit preloaders, Profile & Version History, media-popup fix, staff zoom frame** — the admin emblem is a calm white circle (yellow + drop animation removed), each cadeting unit's preloader is editable separately (`/admin/preloaders`), a new Profile section (name, avatar, email, password change) and a Version History feed (every change with date, time and author) live under System, the media-library picker now opens centred and clickable everywhere (portal fix), and the staff portrait zoom preview is framed.
+- [x] v2.8.19.1 **storage module restored again** — `@/lib/storage` disappeared from disk a second time (same symptom: `Module not found: Can't resolve '@/lib/storage'`, site down). Rebuilt all three drivers (`index.ts` factory + `local.ts` + `s3.ts`) and the deleted multipart `/api/admin/media/upload` route, plus installed the real `server-only` package (Next resolves it either way; bun scripts now work too). Hardened `assertSafeObjectKey` to also reject dot-leading segments. Verified: 18/18 unit checks (`bun --conditions react-server ./scripts/verify-storage.ts`), HTTP serving with immutable cache, traversal 404, auth-gated 401s on presign/upload/finalize, home + admin login render clean in browser with zero console errors.
+- [x] v2.8.19.2 **PGlite crash recovery + preloader-logo mystery solved** — "preloader logo doesn't apply + error" was the DB engine crashing (`RuntimeError: Aborted()` unhandled rejections); the user's two preloader saves were actually IN the database the whole time, but a silent catch in `resolveCadetIntro` hid the DB failure so pages rendered fallback crests (looked like the change never applied). The catch now logs loudly. The DB then became fully unbootable (WAL replay hang); stock PG17 binaries are ABI-incompatible with PGlite dirs (USE_FLOAT8_BYVAL), so recovery went through PGlite itself: `pg_resetwal -f .data/pglite` → standalone boot → **full JSON dump of all 25 tables (98 rows) to `.data/rescue-backup-*.json` BEFORE restarting** → zero data loss. Verified in-browser: army-cadet preloader renders the real college crest, eastern-band the Thomians logo, media serving 200, no aborts in fresh log.
+- [x] v2.8.20 **Form Management, Popups, Live channel, single preloader (4 requests)** —
+  1. **Form Management** (own admin section): Grade 6 Applications (`/admin/forms/grade-6`), A/L Applications (`/admin/forms/alevel`), Contact Messages (`/admin/forms/contacts`) and Appointments (`/admin/forms/appointments`) — searchable status-filtered lists, full detail dialogs, one-click status pipelines (received→reviewing→shortlisted→approved/waitlisted/rejected, requested→confirmed→completed/cancelled, unread→read→replied→archived), delete, CSV export; backed by `/api/admin/forms` (GET/PATCH/DELETE, audit-logged).
+  2. **Announcement Popups** (`/admin/popups`): full editor — title, message, type badge (event / live / special message), banner via Media Library, button link + label, show-frequency (once / per-session / every load), delay, optional start/end schedule, master ON/OFF toggle; the newest enabled in-window popup renders site-wide (`SitePopup` in root layout, skipped inside /admin) via public `/api/popups/active`; dismissal tracked in local/session storage per frequency.
+  3. **Live channel**: new admin Live Streams manager (`/admin/live`) for YouTube / Facebook / Instagram / TikTok / other — URL, auto-derived embed (YouTube watch/shorts/live → embed, Facebook → plugin; IG/TikTok render banner + watch-there card), banner, description, schedule, sort order and extra social links; **LIVE MODE** switch features the stream on the new public `/live` page (ON AIR hero, embed or link-out, upcoming "coming up live" cards, archive grid, friendly empty state) and makes a **blinking red dot** appear next to News & Events in the navbar (plus a "Live · On air" entry in the dropdown and the mobile menu, green dot when a stream is merely scheduled) — navbar polls `/api/live/status` every 45 s and the dot disappears the moment live mode ends.
+  4. **Single cadeting preloader**: navigating between cadet pages used to play TWO identical cinematic cards (Explore "leave" card 2.3 s + destination "enter" card). The leave card is gone — clicking a unit card now navigates instantly (mount-time prefetch) and exactly ONE preloader plays on the destination page. Verified frame-by-frame: hub stays visible at click, one crest card on arrival, clean fade into the page.
+- [x] v2.8.20.1 **premium live badges** — the flat "On Air Now" / "Scheduled" pills on `/live` were rebuilt as broadcast-grade chips (`.live-badge` system in globals.css): dark glass pill (backdrop-blur + tinted gradient + 1px tinted ring), breathing outer glow, a light sheen sweeping every ~4 s, and a hot LED dot (white-hot core in a recessed socket with an expanding ping ring). The hero pill now carries a detail segment after a hairline divider — platform for ON AIR ("On Air Now │ YouTube") and the next stream's formatted time for Scheduled ("Scheduled │ Sat 11 Oct · 18:30"); upcoming cards use a compact glass `--mini` variant over their banner, and the idle "No live event at the moment" pill matches the same glass language. Pure CSS (server-component friendly); navbar blink dot untouched per user note.
+- [x] v2.8.20.2 **live badges: clean refinement** — user feedback: the sheen sweep + breathing glow read as too shiny; wanted premium CLEAN. Rebuilt the `.live-badge` system to quiet-luxury specs: flat translucent glass (single tinted fill, one subtle 1px ring, no gradients, no top highlight, no text shadow, no animations on the pill itself), and the dot calmed to match the navbar blink the user already liked — small solid core with a faint static halo + one slow soft ping (2.4 s, 0.5→0 opacity). Detail segments (platform / next-stream time) and the `--mini` / `--idle` variants kept. Verified in browser for both on-air (real stream) and scheduled (CSS-class injection, no DB writes) states; two Turbopack stale-CSS rebuilds needed (`rm -rf .next`) — chunk filenames are content-deterministic, so always diff the SERVED css content, not the URL hash.
+- [x] v2.8.23.0 **preloader storyboard v3 (the user's exact 3-stage cut) + one loader everywhere + toolbar/badge positions** —
+  1. **Site preloader rebuilt to the user's storyboard, stage by stage**: (1) black screen → the school logo shows **inside a white circle**; below it an **ultra-thin SHARP-edged (square) GOLD progress bar** — gold only, no white anywhere in the meter — fills while **three short professional sentences cycle one after another** beneath the bar (admin can add/change every sentence); (2) the bar + sentences **hide while the circle + logo stay**, the school name is **drawn letter-by-letter below the logo**, and once shown the motto lands beneath it in a sharp tracked uppercase font; (3) everything **fades** and the site enters. One persistent stage now — no more separate screens. All fields stay editable in Admin → Website → Preloaders (logo, scale, circle toggle, name, motto, sentences, hold, bar toggle, exit style, frequency) with an updated full-screen preview; stored settings matching the OLD long-sentence defaults auto-migrate to the new short defaults.
+  2. **ONE navigation loader, as ordered**: the gold top progress bar is GONE and both route-level skeletons were replaced — the **round loading preloader** (black screen + ultra-thin golden ring + "Loading") is the only loading UI anywhere (site + admin, RouteProgress rewritten as RouteLoader + both `loading.tsx` files). It stays a passive overlay — no scroll lock, never combined with the site preloader — which was the source of the user's scroll errors.
+  3. **Navbar NEW badge** — sits to the **right of** the label ("Latest News" / "Staff"), desktop + mobile.
+  4. **Visual editor toolbar position** — the floating bar now parks at the SAME lifted position on every page (where it sat beside the section editor), instead of hugging the bottom edge on non-section pages.
+  5. Ops: fifth PGlite `Aborted()` corruption — `/tmp` had wiped the rebuilt binary, so `pg_resetwal` was rebuilt from PostgreSQL 17.2 source (shims: fake bison + real flex built from source + regenerated `errcodes.h`); recovery clean, zero failed queries after restart, settings/pages verified. Binary persisted at `/home/z/pg_resetwal` (survives /tmp wipes).
+- [x] v2.8.23.1 **storage module restored a third time + preloader bar refinement** —
+  1. **`@/lib/storage` disappeared from disk again** (same symptom: `Module not found: Can't resolve '@/lib/storage'`, photo uploads broken everywhere). Rebuilt the full provider-neutral layer: `index.ts` (env-driven singleton, `MEDIA_STORAGE_DRIVER=local|minio|r2`, `resetStorage`), `local.ts` (filesystem driver under `.data/media`, temp-file + atomic-rename writes, hardened `assertSafeObjectKey` — rejects traversal, backslashes, null bytes, dot-leading segments, whitespace), `s3.ts` (MinIO path-style + R2, presigned PUT via `s3-request-presigner`, honours `MEDIA_STORAGE_PUBLIC_BASE_URL`) and the deleted multipart `/api/admin/media/upload` route (admin-gated, type + 20 MB validated, straight into `processAndStoreImage`).
+  2. **Verified end-to-end in a real browser**: fresh QA admin → Admin → Media Library → Upload modal → device picker → "Upload & optimise" → `presign` 200 (`mode: "proxy"`) → `upload` 200 → asset listed ("Uploaded 1", All Media 38) with a **LOCAL 900×600** thumbnail rendering live via `/api/media/file` (`naturalWidth: 320`, master variant 200 `image/webp`); traversal key returns 404; fresh-session console clean. All QA fixtures (admin, sessions, asset, variants, files, scripts) fully removed afterwards — only the real admin account remains.
+  3. **Preloader progress bar refinement** (user: "a bit longer and a bit smaller") — the sharp gold meter is now `min(660px, 94vw)` wide (was 560px slot width) and **1.5px** thin (was 2px), still perfectly centred, gold-only. Verified live in-browser: computed style `660px × 1.5px` with the fill animating.
+- [x] v2.8.25.0 **cinematic admin theme system + draggable editor toolbars + 9 mobile/UX fixes (10 requests)** —
+  1. **Admin Theme section (new)** — Admin → System → **Theme** (`/admin/theme` + `/api/admin/theme`): four cinematic presets rendered as live gradient cards — **Cinematic Gold** (black + yellow, the new default), **Royal Midnight** (black + `#010736`), **Violet Aura** (black + `#792CA2`) and **Pure Dark** (no glow). `adminTheme` is a published site setting; AdminShell applies it via `data-admin-theme` and a CSS-variable layer in globals.css remaps every gold/dark arbitrary utility (buttons, focus rings, sliders, checkboxes, canvas glows) instantly without a reload (localStorage cache + `stc-admin-theme` broadcast; PATCH merges into the freshest draft so no other pending setting is lost).
+  2. **Draggable editor toolbars** — the Visual Editor and Section Editor floating toolbars now default to the bottom centre and can be **dragged anywhere** by the new grip handle (pointer-event drag clamped to the viewport, position persisted per editor in localStorage, double-tap the handle to reset, resize/rotation-safe).
+  3. **"Editing stays enabled after Home → can't scroll" bug fixed** — root cause: the global `EditorChooser` kept `ready` true after the `?choose=1` flag left the URL, so its scroll-lock effect re-armed on *every* navigation (including Home → `/admin`) and froze the admin page until a reload. The lock now keys on a derived `open` state and `ready` resets via render-time derived state; verified chooser → editor → Home → admin scrolls freely.
+  4. **Visual editor toolbar mobile cleanup** — the + / page-images / history icons sit in properly spaced, wider (44 px) touch targets separated by hairline dividers, so each icon is readable and clickable on phones.
+  5. **Preloader crest/circle decoupled (bug)** — the crest-size slider used to multiply the white circle too (`124 × crest × circle`); the disc is now sized **only** by the White-circle setting while the crest scales independently inside it (`.spo-crest-box`, 30–100% of the disc), so crest 220% + circle 100% keeps a 124 px disc.
+  6. **Live Streams mobile header** — the "YouTube / Facebook / Instagram / TikTok…" paragraph and the "+ Add stream" button now stack as two rows on phones instead of sharing one cramped row.
+  7. **Filters & Categories "Default" badge visible on mobile** — the badge was nested inside the truncating name span and vanished on narrow screens; it is now a sibling chip (higher contrast, wraps under the name when needed).
+  8. **Scrollbar spacing** — sliding/scrollable lists (media library mobile folder switcher, live/forms/popups/versions lists) got the `.hscroll` treatment: thin 5px track + real padding so the scrollbar never touches the content.
+  9. **Online Resources rows restructured for mobile** — title, description (2 lines on phones) and URL take the full width; category/medium chips and the action buttons moved to their own footer row (desktop keeps the single-row layout).
+  10. **Admin selects fit their arrows** — every Admin Studio `<select>` now uses `appearance-none` with an in-box chevron + reserved right padding (`.adm-root select`), so the native down-arrow can never overflow the control; preloader toggle labels wrap (`min-h-11`) instead of clipping long text.
+- [x] v2.8.25.2 **full-page theme gradient + popups mobile stack + DB rebuild** —
+  1. **Theme gradient now covers the WHOLE admin background** (user: "gradients only added to a small area") — the two radial glows were painted on the tall page element with `background-attachment: fixed`, which phones ignore, so the glow only showed near the page's top/bottom. Replaced with `.adm-canvas` — a `position: fixed; inset: 0; z-index: -1` glow layer (first child of `.adm-root`, which is now `isolation: isolate`): viewport-anchored, visible at every scroll position on every device, still driven by the theme CSS vars (verified gold ↔ violet repaint instantly; still covering at scrollY 1500 on a 390×844 viewport).
+  2. **Popups header stacks on mobile** (user: "change the popup section like the live stream one") — same treatment as Live Streams: `flex-col sm:flex-row`, paragraph gets its own row and the "New popup" button becomes a full-width 44px-tall touch target under it on phones; one centred row on desktop (verified at 390px: paragraph top 92 / button top 143; at 1366px: same visual row, centers aligned).
+  3. **INCIDENT + recovery: database rebuilt** — during session setup the twice-Aborted PGlite init (unclean `pkill` while a second process attempted access) left the cluster needing WAL reset; `pg_resetwal` succeeded but rewound the catalog past several tables (no backup existed — the pg_dump backup path never worked against embedded PGlite). The data dir was snapshotted to `.data/pglite-salvage-20251010`, then fully rebuilt from the four Drizzle migrations (`bun run db:push` → 30 tables). **Lost:** admin account (user must re-create via /admin/setup — appears automatically), all admin-entered content rows (news, events, gallery, staff, popups, streams, uploads in `.data/media`), CMS draft overrides. **Safe:** code defaults (public site renders complete — verified hero/preloader/sections, 10 images 0 broken), all `public/images` assets, theme canvas, toolbars, all v2.8.25.x fixes.
+  4. **pg_resetwal rebuilt from source again** (binary had been wiped): PostgreSQL 17.2 at `/home/z/pg_resetwal` — new faster recipe: fake `bison` shim + `FLEX=`/`BISON=` env overrides to skip configure's functional flex test + `make -C src/backend/utils errcodes.h` (perl) + build real flex 2.6.4 (official release asset; its configure must not see a fake flex) + `make -C src/fe_utils` then `src/bin/pg_resetwal`. Lint baseline unchanged (21 pre-existing). APP_VERSION → 2.8.25.2.
+- [x] v2.8.25.3 **theme gradient at the top + no gold flash + themed scrollbars + preloader text size sliders + storage module restored (4 requests)** —
+  1. **Theme gradient now covers the TOP of the studio too** (user: "top ekata adda wela na") — the sticky admin header was an opaque bar that cut the viewport-fixed canvas glow off exactly at the top. The header is now a glass pane (`header.adm-header`: 72% translucent + backdrop-blur, out-specifying the `.bg-[#0a0a09]` remap) so the glows shine through it, and the canvas gained a third top-centre radial glow (`1100px 540px at 50% -16%`) so the whole top edge is tinted on every theme (verified: header `rgba(6,6,8,0.72)`, 3 radial gradients, royal + violet repaint instantly; 390px and 1366px both clean).
+  2. **No more golden fallback flash on reload + scrollbars follow the theme** (user: "reload karaddi golden color fallback error") — the theme choice now rides a 1-year device cookie set by the theme API (GET + PATCH); a synchronous pre-paint bootstrap in the admin layout reads cookie → localStorage and sets `data-admin-theme` on `<html>` before first paint, AdminShell keeps it in sync (and removes it on unmount so the public site is untouched). Reload after switching to Violet restores violet instantly — no gold flash. Every admin scrollbar (page scrollbar via injected html rules, inner scroll areas via `[data-admin-theme]` CSS incl. `.hscroll` and the drawer nav) is tinted with the theme accent, e.g. `#8fb2ff` mix on Royal (verified computed thumb colors per theme).
+  3. **Preloader text size sliders** (user: "title, sentences, subheading sizes edit karanna puluwan") — three new sliders in Admin → Preloaders: **Title size** (60–200%), **Motto / subheading size** (60–220%), **Loading sentences size** (60–220%). Implemented through the settings contract (`titleScale/mottoScale/linesScale`), CSS custom properties on `.spo-root` and `calc()` font sizes for `.spo-name` / `.spo-motto` / `.spo-line`. Verified live in the admin preview: sentences 150% → 16.5px, title 120% → 27.84px, motto 180% → 20.7px; public preloader unchanged at 100%.
+  4. **`@/lib/storage` restored (fourth disappearance)** — same "Module not found" symptom; rebuilt `storage/index.ts` (env-driven `local|s3` registry), `storage/local.ts` (filesystem driver under `.data/media`, hardened `assertSafeObjectKey`) and `storage/s3.ts` (MinIO/R2 via `@aws-sdk/client-s3` + presigner), plus the multipart `/api/admin/media/upload` route deleted in a previous commit. Verified: media page renders, `presign` answers `mode:"proxy" driver:"local"`, upload route auth-gated 401, `/api/media/file` 404s unknown keys, zero console errors.
+  5. **Settings PATCH no longer wipes other sections** — `updateSiteSettings` blanks any default key missing from the payload, and the preloader manager only sends its own keys, so saving preloaders used to blank schoolName/contact/etc. The API route now merges the patch over the freshest draft (verified: partial save preserved schoolName, adminTheme, email while saving the new scales). Lint baseline unchanged (21 pre-existing). APP_VERSION → 2.8.25.3.
+- [x] v2.8.25.1 **mobile admin polish round 2: real overflow fixes + wrap-safe toolbars** —
+  1. **Root-cause fix for "preloader & footer edit text boxes overflow"** — grid/flex `<label>` items keep `min-width:auto` by default, so a text input holding a long crest URL inflated the grid track to 362px inside a 316px container and pushed the whole page 9px past the viewport on phones. New global rule `.adm-root label { min-width: 0 }` lets inputs shrink (scrolling internally instead). Verified: **every admin page now measures exactly 390px scrollWidth at 390×844** (dashboard, media, news, events, gallery, staff, filters, live, logos, popups, resources, theme, settings, versions, pages, profile, preloaders, footer — zero overflowing elements on preloaders/footer).
+  2. **Visual Editor toolbar Publish button overflow fixed** — the floating toolbar's single-row content (~538px) exceeded a 390px phone viewport, pushing Publish off-screen. Both editor toolbars (Visual + Section) are now `flex-wrap justify-center`: they break into two tidy centred rows on narrow screens (grip/home/pages/edit-mode + blocks/images/history/publish), hairline dividers hidden on mobile, every control inside the viewport. Verified at 390px: 2 rows, Publish fully visible, no page overflow; at 1366px: still one row. Drag-to-position and double-tap reset re-verified after the change (drag persists to `stc:vtb:visual`/`stc:vtb:section`, reset returns to bottom-centre and clears storage).
+  3. User-visible confirmation that the earlier v2.8.25.0 fixes were real but being masked by stale Turbopack CSS — cache-clear + server restart recipe applied again during verification (`.next` rebuild + `pg_resetwal` for the by-now-standard seventh PGlite `Aborted()` recovery).
+- [x] v2.8.24.0 **preloader admin controls + mobile Admin Studio + admin performance (6 requests)** —
+  1. **Network round preloader on/off** — Admin → Website → Preloaders now has a "Network round preloader (slow-navigation ring)" switch; the RouteLoader (black screen + golden ring) mounts only when `routeLoaderEnabled` is published true. Verified: publish off → component unmounted; publish on → restored.
+  2. **Admin Studio is mobile-responsive** — the fixed sidebar becomes a slide-in drawer under `lg` (hamburger topbar, backdrop, Escape close, scroll lock, ≥44px touch targets, auto-close on navigation); every manager page collapses to one column on phones with scrollable tables and full-screen sheet modals; desktop layout untouched. Verified at 390×844: `/admin`, `/admin/media`, `/admin/news`, `/admin/preloaders` all report zero horizontal overflow, drawer + modals usable; desktop 1366×900 unchanged.
+  3. **Progress bar width slider** — 40–100% (100% = the current 660px design width), applied live to the site preloader and the admin full-screen preview (60% measured at exactly 396px).
+  4. **"Global preloader defaults" removed** — the unused cadet-intro fallback section is gone from Admin → Preloaders; per-unit preloaders now resolve unit override → stored/standard cadetIntro values → the unit's own synced crest, so nothing changes for visitors.
+  5. **White circle size + golden ring** — new "White circle size" slider (60–200%) composes with the crest slider, and an optional **golden animation ring** (two thin rotating gold arcs, hairline-masked conic gradient, 5.5 s spin, reduced-motion safe) orbits the white circle with its own on/off switch. Verified live: ring renders/spins on the home preloader and in the admin preview; toggle off removes it.
+  6. **Admin performance** — new disk-cached thumbnail pipeline: `admin-grid-thumb.ts` + `/api/media/thumb` render legacy `/images/*.jpg` masters once into 480px WebP files under `.data/thumbs` (sha1-keyed, immutable cache, traversal-guarded, graceful redirect fallback); Pexels URLs are downscaled via crop params; uploaded assets keep their WebP thumbnail variant. All admin images lazy-load with async decode and large-surface backdrop blurs were reduced — the media library now decodes tiny thumbs instead of ~200 KB JPEGs.
+  - Ops: sixth PGlite `Aborted()` crash recovered with the persisted-binary recipe (`rm .data/pglite/postmaster.pid` + `/home/z/pg_resetwal -f .data/pglite`), zero data loss.
+- [x] v2.8.22.1 **preloader sequence rebuilt to the user's exact storyboard + three bug fixes** —
+  1. **Cinematic preloader = the user's storyboard, beat for beat**: (1) black screen, school logo visible **blurred**, resolving into focus; (2) an **ultra-thin golden progress bar** below the logo fills; (3) **rotating sentences** cycle beneath the bar; (4) fill complete → back to pure black and the school name is **drawn huge** (outline letters appearing one by one); (5) a sweep **fills the letters white**; (6) fade-in of the identity lockup — crest **in a white circle above**, the name, and **"Animo Et Fide" small below**, all as one composition; (7) everything fades and the site enters. Every element (logo, scale, title, motto, sentences, hold time, progress toggle, white circle, exit style, frequency) is editable in Admin → Website → Preloaders with a full-screen preview. Scroll lock is doubly guaranteed (html class + `:has()` keyed to the overlay) and released on every path out — verified the page scrolls the moment the preloader ends.
+  2. **Slow-network loader** — navigations still in flight after ~450 ms take over with the user-specified screen: **black + ultra-thin golden ring spinner + "Loading"** (site and admin, reduced-motion aware).
+  3. **Editor-chooser leak fixed** — picking **Visual Editor** from the chooser (`?visualEditor=1`) no longer mounts the section editor's floating toolbar: all three section pages now gate `LiveSiteEditor` behind `cmsEditor=1` only.
+  4. **NEW badge position + staff NEW** — the gold NEW chip in the navbar dropdowns now renders **in front of** "Latest News" and "Staff" (desktop + mobile menus), and adding a teacher in Staff Manager now creates it with `isNew: true` so the navbar NEW chip lights up immediately.
+  5. Ops: the session was interrupted mid-edit leaving duplicate imports in `site-preloader.tsx` (whole site 500) — repaired and re-verified end to end in the browser.
+- [x] v2.8.22.0 **editor chooser + cinematic site preloader + filters management + popup/popup-theme fixes** —
+  1. **Popup social-links editor relaid out** — each link row is now a stacked card: name input (full width) on top, URL input at **full width below** with its placeholder always visible (the old 128 px label + squeezed URL row hid the placeholder on narrow screens; verified at 1280 px and 390 px).
+  2. **Editor chooser** — "Edit page" in `/admin/pages` now opens the page with `?choose=1` and a **Choose your editor** overlay: *Visual Editor* (element-level, `?visualEditor=1`) or *Section Editor* (structured lists/sections, `?cmsEditor=1&edit=1`; only offered on section pages, shown disabled elsewhere). Escape / backdrop click cancels; session-gated like the editors.
+  3. **Light theme popup chips** — the LIVE / EVENT / ANNOUNCEMENT badges and the platform chip used dark-only tints (`text-violet-200`, `bg-white/10`) and vanished on white; now theme-aware (`text-violet-700`-class tints in light, originals in dark). Verified in both themes with a live popup.
+  4. **Cinematic site preloader** — first-load "cinema opening": crest blur-scale reveal with a gold light sweep, letter-by-letter title, tagline, italic gold motto, and a **realtime progress line** that tracks actual document loading (fast ramp → creep → 100% on load, 3 s stall cap). Exits via **cinema curtains** or soft fade (selectable), click/Escape skips, honours prefers-reduced-motion, never plays inside /admin, and a `<head>` bootstrap applies session/once/always frequency **before first paint** so it never flashes for returning visitors. **Full admin control** in Admin → Website → Preloaders: enable, frequency, crest/logo (Media Library), logo scale, title, tagline, motto, hold time, progress toggle, exit style + a full-screen **Preview the opening** button.
+  5. **Slow-network loading feedback** — new `RouteProgress` top bar (gold, realtime ramp, completes on route change, works on the public site AND admin panel, opt-out via `data-no-progress`) plus route-level `loading.tsx` skeletons (crest pulse + sliding bar) for site and admin.
+  6. **Filters & Categories manager** (`/admin/filters`, nav under Content) — one place to manage every public filter system: tabs for News, Campus Gallery, Events, Resources and Staff departments; per category: usage counts, inline **rename** (bulk-updates the content rows), **delete with move-to** (in-use categories demand a target, 409-guarded; removable defaults are hidden via a marker row so the default merge can't resurrect them), and add. Every content manager (news/gallery/events/resources/staff) gained a "Manage filters" shortcut linking to its own tab. Backing API: GET (managed lists + counts), POST (add/unhide), PATCH (rename everywhere), DELETE (with move).
+  7. Ops: yet another round of sandbox OOM kills (chronic — baseline test with changes stashed showed identical memory growth, so not caused by this release) + one pg_resetwal recovery that ate the un-checkpointed "basket ball" stream row again (restored + CHECKPOINT); a fresh Turbopack stale-CSS incident after stash/pop needed another `rm -rf .next`.
+- [x] v2.8.21.1 **five fixes after user testing** —
+  1. **Popup social/watch links** — the "Add link" flow in the popup editor could fail when a row's jsonb `links` arrived malformed (and during the day's DB crash window saves were dying); the edit path now normalises `links` to a real array before opening the editor. Verified end-to-end: added YouTube + Facebook rows, saved, `/api/popups/active` returns both, popup renders both chips with brand SVG icons.
+  2. **A/L Teachers & Classes + Old Thomians "+" was unreachable** — root cause: `/admin/pages` opens every page with `?visualEditor=1`, but the section inspector (which hosts the list editor and its "+" buttons) only mounted on `?cmsEditor=1`. The two editor systems never overlapped, so the fix from v2.8.21.0 looked "not applied". Now: section pages (Home, History, 4 A/L streams) also open the section editor from `visualEditor=1`, and `/admin/pages` links straight to `?cmsEditor=1&edit=1` for them. Verified: Teaching Panel → "Add a new teacher" → created with staff-directory sync → appeared on the A/L page AND /staff → deleted cleanly.
+  3. **NEW badges** — staff cards now pin the gold NEW chip to the card's **top-right corner** (absolute, z-10, no more squeezing/overflow next to the name; content column gains `min-w-0`); verified on the Academic Faculty, Sports, Arts and Deputy cards. Some items "not getting the badge" was the day's DB crash eating `is_new` flags — flags must be re-set after the recovery.
+  4. **Navbar** — Admissions moved from the About Us dropdown to **Academics** (after Achievements).
+  5. **Reusable component blocks now land on the page** — the Framer-style "Add a component" library wrote DB rows but six editor-enabled pages never rendered blocks: A/L stream pages, /live, /resources, /cadeting units, /ordinary-level/past-papers and news articles now render `VisualBlockSections` above the footer; on A/L streams it is draft-aware (drafts visible while previewing, published for visitors). Adding a block now also `router.refresh()`es so it appears instantly. Verified: Stats Row added → visible immediately in editor → Publish → visible on the public page. The universal editor's floating bar lifts above the section editor's bar when both run, and section-overlay clicks are marked `data-visual-ui` so element-edit mode can never hijack them.
+- [x] v2.8.21.0 **four admin requests** —
+  1. **Popups upgraded** — centred on mobile too (was bottom-anchored); new optional **event date & time** (`event_at`) rendered as a calendar chip; live popups gain a **streaming-platform** select that renders the platform's brand icon; new **social/watch links** editor (label + URL rows) rendered as platform-icon buttons on the popup. Live page stream links now show **brand logos** (YouTube/Facebook/Instagram/TikTok inline SVGs — lucide dropped brand marks) instead of a generic link glyph.
+  2. **Dropdowns fixed** — native `<select>` option lists went white-on-white in dark mode; fixed globally with `color-scheme: light/dark` + explicit option colours. The navbar hover dropdown panel is now always dark glass with white text (user request), independent of theme.
+  3. **Editable A/L & Old Thomians lists** — new `stream_teachers`, `stream_classes`, `old_thomians` tables (seeded from the former static content); A/L stream pages + history honour roll now render from the DB. The visual editor's inspector for these sections shows a **list editor with a "＋ Add" button at the very end of the list** — new A/L teachers can be created from scratch (**"Also add to Staff directory" sync** creates the staff row automatically, department selectable) or **picked from existing staff** (auto-fill name/role/qualification/photo); classes support picking a class teacher by name; Old Thomians has the same add flow. Inline edit (save on blur), NEW-badge toggle and delete on every row. All CRUD via `/api/admin/lists`, audit-logged.
+  4. **NEW badges** — posts, events and staff gain an `is_new` flag with a "NEW badge" toggle in News Manager (post + event editors) and Staff Manager; gold NEW chips render on news cards, the featured story, calendar event rows, staff cards, A/L teacher cards and Old Thomians rows. While anything is flagged, a gold **NEW chip appears next to News & Events in the navbar** (polls `/api/new-status` with the live-status interval).
+
+### Editor & CMS Hardening Package — v2.8.14 (14-item admin request)
+
+- [x] Visual editor → persistent **Home button** back to Admin Dashboard (`/admin`).
+- [x] Hidden elements stay visible inside the editor (28% opacity, dashed amber outline, grayscale) with an explicit **Restore** action; the public site uses `display:none` so the next element reflows into place.
+- [x] **Page Images & Banners navigator** — lists every image/video/iframe/background (incl. hero images hidden behind overlays); one click selects exactly that element for editing. Structured News/Gallery/Staff cards are excluded by design.
+- [x] **Premade Component Library (Framer-style)** — Hero Banner, CTA, Stats Row, Image+Text, Heading, Text, Full Image and Quote blocks insertable on any page from the toolbar `+` drawer; draft/publish, hide, reorder, delete; all 16 public pages render blocks above the footer.
+- [x] Vision & Mission — colour panels and YouTube embed are now selectable (panels support background colour + image replacement; iframes support `src` editing).
+- [x] Staff portraits moved into the database (`staff.image`) with picker in the Staff Manager — principal/deputies/faculty avatars render from the DB with safe fallbacks; `media_usage` synced.
+- [x] Exam-results five-year trend — editing a percentage automatically resizes its progress bar (`data-trend-row`/`data-trend-bar`, works in editor preview, bootstrap and public patch application).
+- [x] **School logo** setting (Admin → Settings) renders in navbar, footer and mobile menu; circular Crest elements (clubs/societies/cadeting) support background-image replacement through the visual editor.
+- [x] A/L course cards — cut-off Z-score chips are now selectable text spans.
+- [x] Clubs & Cadeting crests editable via the universal editor (Crest components marked `data-visual-bg`).
+- [x] **Unit Galleries** — new `unit_gallery_items` table, admin manager (`/admin/unit-gallery`), per-unit picker + upload, public cadeting page prefers managed photos over built-in frames; usage tracked.
+- [x] Cadeting preloader removed from visual-editor scope (`data-visual-ui` shield) and moved to **Admin → Settings → Cadeting preloader** (enable/disable + direct-visit hold ms).
+- [x] Structured content protection — DB-driven components (news/events/gallery/staff/posts) are marked `data-structured-content` and ignored by the visual editor; they can only be edited in their own managers.
+- [x] Dark theme is now the site default; the toggle stores an explicit light preference.
+- [x] **App versioning** — `src/lib/app-version.ts` holds `APP_VERSION` (`major.phase.feature.patch`), displayed in the Admin Studio sidebar.
+
+### v2.8.15 — Media pipeline completion, white crest system, keyed visual patches
+
+Fix package completing the unfinished media foundation and addressing the reported cadeting-gallery / crest-editing / hide-element bugs.
+
+#### Fixed: missing storage module (root cause of media failures)
+- `src/lib/storage/` was referenced by six files but **did not exist in the repository** — every media upload, media file request and presign call failed, and any media-URL image broke the pages that rendered it.
+- Implemented the provider-neutral storage layer:
+  - `src/lib/storage/index.ts` — `getStorage()` / `getStorageDriver()` factory driven by `MEDIA_STORAGE_DRIVER` (`local` | `minio` | `r2`).
+  - `src/lib/storage/local.ts` — default filesystem adapter storing objects under `.data/media/`, served via `/api/media/file?key=…`; includes `assertSafeObjectKey` (path-traversal safe).
+  - `src/lib/storage/s3.ts` — S3-compatible adapter shared by MinIO (path-style) and Cloudflare R2, with direct signed-PUT upload support.
+
+#### Fixed: cadet unit pages crashing after adding gallery photos
+- Next.js 16 requires `images.localPatterns` for local image sources carrying a query string. Managed photos use `/api/media/file?key=…`, so `next/image` **threw during render and the whole unit page returned 500** the moment a managed photo existed.
+- Added `localPatterns` for `/images/**` and `/api/media/file` in `next.config.ts`; the image optimiser now serves media objects (verified 200 image/jpeg).
+- `next.config.ts` also sets `experimental.workerThreads: false` and `cpus: 1` — PGlite keeps state on globalThis and locks its data directory, so render workers must not open second instances.
+
+#### Added: reusable SiteImage component (site-wide image sync)
+- `src/components/site-image.tsx` — the canonical image component:
+  - Renders every site image through one place (optimisation, editor keys, fallbacks stay in sync).
+  - Graceful `onError` fallback — a removed media file renders `fallbackSrc` or a neutral labelled panel instead of a broken icon; pages can never break on a bad image URL.
+  - Stamps a stable `data-visual-key` (via `visualKey` prop) so editor patches target the exact element forever.
+- Used for cadet unit gallery frames (`cadet-photo-<unit>-<n>` keys).
+
+#### Changed: crest/logo system — white circles, no gold discs
+- All unit/club crests now sit on a **WHITE circle with perfectly centred content**; yellow/gold discs are no longer used for logos.
+  - `Crest` component default tone changed to white (`bg-white text-ink` + soft shadow); explicit white discs on the cadet unit dossier plaque and "Other units" links; cinematic intro card disc is white.
+  - Crest/logo elements are `data-visual-bg` marked so a real logo image can be attached from the visual editor — the initials fade automatically when a logo is set.
+  - Keyed: `cadet-crest-<unit>`, `cadet-unit-crest-<unit>`, `cadet-cine-crest-<unit>`, `club-crest-<slug>`.
+
+#### Fixed: element-hide hydration errors — stable visual keys
+- Patches now prefer **stable `data-visual-key` selectors**: `cssSelector()` in the universal visual editor resolves the nearest `[data-visual-key]` ancestor first and only falls back to structural `:nth-of-type` chains when no key exists.
+- The public boot script (`VISUAL_PATCH_BOOTSTRAP`) applies **hidden / background-image / background-color patches through an injected stylesheet (`stc-vp-boot-css`), not inline DOM mutation** — mutating attributes before React hydrates caused hydration-mismatch errors (reported as "error when hiding an element"). CSS rules carry `!important` and never touch the DOM, so React and the patch layer cannot fight. Text/src/href patches still mutate post-parse (unavoidable) and re-apply after hydration.
+- Verified: keyed hide + keyed crest-logo patches apply with **zero console errors**.
+
+#### Database note (PGlite recovery)
+- The app uses embedded PostgreSQL (PGlite) at `.data/pglite`. Killing the dev server abruptly can leave the data directory in a state where the next start aborts (WASM `Aborted()` errors / 500s on every page).
+- Recovery: `bun run db:reset` (drops and recreates the data dir + tables; content seed data reloads automatically; admin accounts are removed and `/admin/setup` reopens).
+
+### v2.8.16 — Logo sync system, editor-exit fix, Online Resources section
+
+Fix package addressing three admin requests: (1) visual edit mode leaking into the admin dashboard, (2) a site-wide logo sync system with per-logo size control, (3) a dedicated, category-based Online Resources admin section.
+
+#### Fixed: visual edit mode blocking the admin dashboard
+- **Bug:** clicking the editor toolbar's Home button navigated to `/admin`, but *nothing* there was clickable — the editor's capture-phase `mouseover/mouseout/click` interceptors stayed attached because the listener `useEffect` did not depend on `pathname` / the `?visualEditor=1` flag. Its cleanup never ran on navigation, so every admin click was swallowed (`preventDefault` + `stopPropagation`).
+- `UniversalVisualEditor` now derives `leftEditor` from the route; the listener effect depends on it, so navigating to `/admin` (or dropping the flag) always **detaches the interceptors**.
+- State resets (edit mode off, inspector/drawer closed, hover outlines cleared) use React's render-time derived-state pattern — no phantom edit mode when returning to the editor either.
+
+#### Added: central logo registry (`logo_assets`) — sync every logo by ID
+- Every crest/logo on the site now has a **stable sync ID** (`logoKey`): `school-crest`, `club-crest-<slug>`, `cadet-crest-<unit-slug>`, `honour-crest-<title-slug>`.
+- New table `logo_assets` (idempotent runtime `CREATE TABLE IF NOT EXISTS` in `src/lib/logos.ts`, plus generated migration `drizzle/0001_red_morg.sql`) holds `draftSrc/publishedSrc` + `draftScale/publishedScale` per key.
+- **Render-time sync:** every public page reads the registry (server components) — the school crest flows into `/api/site-settings` (navbar, footer, mobile menu), club crests on `/clubs-societies`, cadet crests on `/cadeting`, `/cadeting/[slug]` (dossier disc **and** cinematic intro card, shared `cadet-crest-<slug>` id) and honours crests on `/achievements`. Change a logo once → every instance updates; no per-page re-editing, and no conflicting per-page patches (legacy logo patches are removed on save).
+- **Admin → Logos & Crests** (`/admin/logos`): grouped manager (School / Clubs & Societies / Cadeting Units) with white-circle previews, media picker, per-logo size slider, Save draft / Save & publish / Publish all changes / Revert / Clear.
+- **Visual editor integration:** tapping any registry logo shows "Logo image (synced by ID)" plus a **Logo size in circle** slider (40–240%, 100 = fit the white circle). Saving writes the shared registry row (draft), the Publish button counts it and promotes it globally; toast confirms the site-wide sync.
+- Logos always render **centred on a WHITE circle** (initials auto-fade when an image is present) — never gold.
+- School-logo editing in Admin → Settings now also upserts the `school-crest` registry row, keeping both entry points in sync.
+
+#### Added: Online Resources section (category-based management)
+- New table `online_resources` + dedicated admin section **Admin → Online Resources** (`/admin/resources`):
+  - Category tabs with counts; create custom categories on the fly (custom-collections type `resources`).
+  - Full CRUD: title, URL, description, category, **type** (Website / Past paper / Document / Video), **medium** (All / Sinhala / Tamil / English), featured star, manual ordering.
+- New public page **`/resources`** — curated library grouped/filterable by category, medium and free-text search; linked from the Academics menu (navbar) and the footer Explore list.
+- Ships with six starter resources (Past Papers WiKi, e-thaksalawa, NIE, DoENets, National Library, British Council English practice).
+- Dashboard quick-launch cards + sidebar + mobile admin nav entries for both new sections.
+
+#### Notes
+- `bun run db:reset` re-applies both migrations (24 tables total now). First-run `/admin/setup` reopens after any reset.
+- Lint: the pre-existing strict react-hooks rule set still reports upstream warnings; the editor-exit fix deliberately uses the documented render-time derived-state pattern to stay rule-clean.
+
+### v2.8.17 — Storage layer restored (custom image uploads fixed)
+
+The `src/lib/storage/` module documented in v2.8.15 was missing from the working tree — every media upload, presign call and media-file request failed with `Module not found: Can't resolve '@/lib/storage'`, so **custom images could not be uploaded anywhere** (admin media library, media picker, gallery, news covers, logo sync, visual editor image inspector).
+
+#### Fixed: recreated the provider-neutral storage layer
+- `src/lib/storage/index.ts` — `getStorage()` / `getStorageDriver()` singleton factory driven by `MEDIA_STORAGE_DRIVER` (`local` | `minio` | `r2`); typed `MediaStorage` interface with optional `createSignedUpload` for direct-upload drivers.
+- `src/lib/storage/local.ts` — default filesystem adapter:
+  - Objects persist under `.data/media/<key>` (survives restarts), written via temp-file + atomic rename so readers never see partial files.
+  - `assertSafeObjectKey()` rejects path traversal (`..`), absolute paths, backslashes, null bytes and invalid segments; `resolveMediaPath()` re-checks the joined path stays inside the media root (defence in depth).
+  - Public URLs use `/api/media/file?key=…` (immutable cache route, `localPatterns` configured in `next.config.ts`).
+- `src/lib/storage/s3.ts` — S3-compatible adapter shared by MinIO (path-style) and Cloudflare R2 using `@aws-sdk/client-s3` + `s3-request-presigner` (both already in dependencies): `putObject` / `getObject` / `deleteObject` / `getPublicUrl` (honours `MEDIA_STORAGE_PUBLIC_BASE_URL`) and `createSignedUpload` (presigned PUT, content type signed).
+
+#### Fixed: multipart upload endpoint
+- `src/app/api/admin/media/upload/route.ts` (new) — the presign route answers `mode: "proxy"` for the local driver, and the admin clients (media picker + media library modal) POST to this endpoint. Validates admin session, file type (JPEG/PNG/WebP/AVIF/HEIC), 20 MB limit, then runs `processAndStoreImage` (sharp → WebP variants thumbnail/small/medium/master + blur placeholder + dominant colour + sha256 duplicate detection).
+
+#### Verified end-to-end (API + real browser)
+- `/api/media/file?key=…` serves stored bytes with `Content-Type`, `Cache-Control: public, max-age=31536000, immutable`, `X-Content-Type-Options: nosniff`; traversal keys return 404.
+- API upload → asset + WebP variants in DB + files on disk; master variant serves `200 image/webp`; duplicate upload returns `duplicate: true` and reuses the asset.
+- Presign returns `{"mode":"proxy","driver":"local"}` so clients route correctly.
+- Browser UI test (Agent Browser): admin login → Media Library → Upload modal → file chosen via device picker → "Upload & optimise" → asset appears with live-rendering thumbnail ("Uploaded 2"); zero console errors.
+- Test data (temp admin + 2 test assets) fully removed afterwards; the real admin account and site content are untouched.
+
+#### Operational notes
+- Switching to object storage later needs zero code changes: set `MEDIA_STORAGE_DRIVER=minio|r2` + endpoint/bucket/credentials (+ `MEDIA_STORAGE_PUBLIC_BASE_URL` for R2 reads) and redeploy — existing keys keep resolving because the driver is stored per asset.
+- If PGlite reports `failed to initialize` after an unclean shutdown, delete the stale `.data/pglite/postmaster.pid` **while the dev server is stopped** before running DB scripts.
+
+### v2.8.18 — Admin Studio upgrade (10 admin requests)
+
+#### 1. Falcon emblem — changeable, drops in like a crest
+- New `AdminEmblem` component (`src/components/admin/admin-emblem.tsx`): the falcon crest appears at the top of Admin Studio — sidebar, dashboard banner, sign-in page — and **drops in from the top like a crest** (`emblemDrop` keyframes in globals.css, respects `prefers-reduced-motion`).
+- Admin → Settings → **Falcon emblem**: image picker/URL (built-in gold bird until set), **emblem size slider**, drop-animation toggle, all with a realtime preview circle.
+- Settings keys: `falconImage`, `falconScale`, `falconIntroEnabled`.
+
+#### 2. Logos manager — realtime preview
+- While editing a logo, the white-circle preview now mirrors the **URL being typed and the size slider** live — no draft/publish needed to see the result (edit ring highlights the active card).
+
+#### 3. Admin Studio — clean grouped sections
+- Sidebar reorganised into labelled groups: **Overview · Content (Pages, News & Stories, Events, Faculty & Staff) · Media (Media Library, Campus Gallery, Unit Galleries) · Website (Online Resources, Logos & Crests, Footer) · System (Settings)**. Mobile nav gains the Footer entry.
+
+#### 4. Footer — its own section (out of Settings)
+- New **Admin → Footer** (`/admin/footer`, `FooterManager`): description, address, phone, email, office hours + crest, with a live preview mirroring the public footer.
+- Settings now holds only **Falcon emblem + Cadeting preloader + brand basics** (name, subline, admissions year, crest) — footer editing lives in its dedicated section.
+
+#### 5. Cadeting preloader system
+- Settings → Cadeting preloader now has: enable toggle, direct-visit hold (ms), **global logo override** (empty = each unit's own synced crest from the logo registry) with **logo size slider**, and an optional **tagline override**. Wired through `CinematicIntro` (`cadetIntroLogo`, `cadetIntroLogoScale`, `cadetIntroTagline`).
+
+#### 6. Dashboard — professional, image-led
+- Cinematic welcome banner (hero photo + falcon emblem + greeting), refined 8-metric strip, and three photographic **section hub cards** (Content / Media / Website) with real imagery, hover lift and per-section quick links.
+
+#### 7. Image size (zoom) controls while editing
+- Shared zoom-slider pattern (50–240 %) with live preview in: **news cover** (`imageScale`, applied on the article cover), **staff portrait** (`photoScale`, applied in admin grid + public avatar), **unit-gallery photos** (`zoom`, applied on public tiles), logos (existing) and the falcon/preloader logos.
+
+#### 8. Faculty & Staff — photo preview fixed
+- The admin staff grid always showed initials even when a portrait existed; cards now render the real photo (initials remain the fallback) — matching the public site. Portrait zoom slider added in the editor.
+
+#### 9. News & Stories — Images / Links / Videos toggles
+- Tick **Images** → up to **5 story photo slots** (URL + media picker each); tick **Links** → labelled related-link rows; tick **Videos** → YouTube/direct-URL rows. Unticking clears that list. Stored in new `posts` columns `extra_images` / `links` / `videos` (+ `image_scale`), synced with `media_usage`.
+- Public article renders them: photo strip ("Story photos"), video section (YouTube → `youtube-nocookie` embed, else `<video>`), and a "Read more" link list.
+
+#### 10. Unit gallery — proper "+" add dialog
+- The dashed "+" tile and the new "Add photos" button open a dialog with **multiple image slots + title + short sentence + shape**; one gallery tile is created per image (up to 10 per batch).
+
+#### Schema & infrastructure
+- New columns added idempotently at runtime (`src/lib/schema-extras.ts`, called from seed + admin APIs): `staff.photo_scale`, `posts.image_scale/extra_images/links/videos`, `unit_gallery_items.zoom`. `SiteImage` gained a `style` prop for zoom transforms.
+- **PGlite crash recovery that preserves data:** abrupt dev-server kills corrupted the WAL twice (`PANIC: could not locate a valid checkpoint record`). `db:reset` would delete all content — instead, a standalone PostgreSQL 17 `pg_resetwal -f .data/pglite` (from theseus-rs/postgresql-binaries) rebuilt the WAL with **zero data loss**. Recovery steps recorded here for future incidents:
+  1. Stop the dev server; `rm -f .data/pglite/postmaster.pid`
+  2. `pg_resetwal -f .data/pglite` (PG17 binary — PGlite 0.3.x embeds PostgreSQL 17)
+  3. Restart `bun run dev`
+- All 10 features verified in-browser (Agent Browser): emblem drop + settings preview, logo realtime preview, grouped nav, footer section, preloader override live on `/cadeting/*`, dashboard render, zoom sliders, staff photos, story attachments end-to-end (admin → DB → public article), unit add dialog. Test data (temp admin, demo attachments, test gallery item) removed afterwards.
+
+### v2.8.19 — Calm emblem, per-unit preloaders, Profile & Version History
+
+Five follow-up admin requests on top of v2.8.18.
+
+#### 1. Admin emblem — white circle, no animation
+- `AdminEmblem` no longer animates: the yellow circle and the `emblemDrop` keyframes are gone. The falcon now sits calmly in a **white circle** (black ring + soft shadow) across the sidebar, dashboard and sign-in page.
+- Settings → Falcon emblem lost the "Play the drop-in animation" checkbox; both preview circles are white. `falconIntroEnabled` default removed (legacy rows are ignored).
+
+#### 2. Cadeting preloaders — edit each unit separately
+- New `cadet_intro_overrides` table (one row per unit slug: `enabled` inherit/on/off, `holdMs`, `logoSrc`, `logoScale`, `tagline`) created idempotently in `schema-extras.ts`.
+- New **Admin → Preloaders** section (`/admin/preloaders`, moved out of Settings like Footer): global defaults card (draft/publish via site settings) + a card per cadeting unit with its own intro on/off, hold ms, logo (+ size slider), tagline, **live mini preview of the cinematic card**, per-unit Save and "Reset to defaults". Saved through `/api/admin/cadet-intro` (GET/PUT/DELETE, audit-logged, revalidates `/cadeting`).
+- `resolveCadetIntro()` (`src/lib/cadet-intro.ts`) merges per-unit override → global settings → the unit's own crest/tagline on `/cadeting/[slug]`.
+
+#### 3. System group — Profile + Version History
+- **Admin → Profile** (`/admin/profile`): profile photo (media library + remove), display name, read-only sign-in email, role, last sign-in/admin-since timestamps, and a **Change password** form (current password verified server-side, min 10 chars, confirmation match). New `admin_users.avatar` column (runtime ALTER); the sidebar identity now shows the avatar/initials.
+- **Admin → Version History** (`/admin/versions`): first reader of the append-only `admin_audit_logs` table — v2.8.19 site version, total recorded changes, search, entity filter chips and a day-grouped timeline (time · entity badge · human sentence · details · who). Humanised sentences for all ~40 actions.
+- Audit coverage completed: logo save/publish/revert and cadet-intro changes are now logged too, so **every** change anywhere on the site is recorded with date, time and author.
+- New APIs: `/api/admin/profile` (GET/PATCH/PUT) and `/api/admin/audit` (GET, filters, joins admin name) — both admin-guarded.
+
+#### 4. News & Stories — media picker popup fixed
+- Root cause: `MediaLibraryButton` rendered the picker **inside** the editor's `g-panel` modal; the panel's persistent `transform` (animation fill `both`) made it a containing block for `position:fixed` descendants and its `overflow-hidden` clipped the sheet — so the picker overflowed, wasn't centred and sat behind the headline.
+- Fix: the picker now renders through `createPortal(document.body)` (fixes all 13 call sites at once) and `.g-panel` uses `backwards` fill so its transform is cleared after the entrance. Verified in the news editor: sheet centred on the viewport, media clickable, cover updates live.
+
+#### 5. Faculty & Staff — framed zoom preview
+- The edit-modal portrait preview now sits in a gold-ringed, `overflow-hidden` frame (matching the public circular crop) with a live "N% zoom" badge — the zoom slider (50–240 %) shows exactly how the portrait will be cropped instead of overflowing over the URL input.
+
+#### Infrastructure notes
+- `getAdminSession()` runs `ensureSchemaExtras()` first, so late-added columns (e.g. `admin_users.avatar`) always exist before the session query — fresh boots no longer 500 on the first admin request.
+- Another abrupt dev-server kill corrupted the PGlite WAL ("RuntimeError: Aborted()"); recovered again with the documented `pg_resetwal -f .data/pglite` procedure, zero data loss. Note: `pg_resetwal` restores to the last checkpoint, so changes made shortly before the crash can roll back — verified test rows were re-cleaned afterwards.
+- All five features browser-verified (Agent Browser): white emblem everywhere, per-unit preloader save → live on `/cadeting/army-cadet` → reset, profile save + wrong-password rejection, version-history timeline with real entries, media picker centred + clickable, staff zoom 240 % clipped inside the frame. Temporary verification admin removed afterwards.
+
+### Phase 2.8 verification (performed 2026)
+
+Automated end-to-end checks against a running production build:
+
+1. Multipart local upload produced WebP variants and a `ready` asset.
+2. Creating a gallery frame with a library URL inserted a `media_usage` row.
+3. Trashing that asset returned HTTP 409 while the usage row existed.
+4. Changing the frame image cleared the usage row; trash then succeeded.
+5. Saving a visual page patch with a library `src` inserted a page-level usage row; publishing retained it and trash was again blocked.
+6. Re-uploading the same file was detected by SHA-256 hash and safely reused (`duplicate: true`).
+7. `/api/media/file` delivered processed WebP with immutable caching.
+8. `npx next typegen`, `tsc --noEmit` and `next build` all pass.
+
+### v2.8.14 verification (performed 2026)
+
+1. All 16 public routes + cadeting unit pages return 200 with the new schema (`staff.image`, `unit_gallery_items`, `visual_blocks` pushed via Drizzle).
+2. New endpoints `/api/admin/visual-blocks` and `/api/admin/unit-gallery` return 401 unauthenticated and are wrapped in the admin layout guard.
+3. `data-trend-row`, `data-visual-bg` and `data-structured-content` markers verified in served HTML.
+4. Draft/publish lifecycle for blocks shares the same publish endpoint as element patches (single "Publish now" action publishes both).
+
+### Current development mode
+
+```text
+MEDIA_STORAGE_DRIVER=local
+# Local development assets use the fixed, Git-ignored .data/media directory.
+```
+
+Uploaded development images are written under `.data/media`, which is ignored by Git. This storage is suitable for local/sandbox development only; it is not persistent production storage.
+
+### Optional card-free MinIO mode
+
+```text
+MEDIA_STORAGE_DRIVER=minio
+MINIO_ENDPOINT=http://127.0.0.1:9000
+MINIO_BUCKET=school-media
+MINIO_ACCESS_KEY_ID=<local access key>
+MINIO_SECRET_ACCESS_KEY=<local secret>
+MINIO_PUBLIC_BASE_URL=http://127.0.0.1:9000/school-media
+```
+
+The same admin uploader and processing pipeline work in local, MinIO and R2 modes. No UI rewrite is required during the eventual production switch.
+
+Optional MinIO startup (requires Docker on the developer machine):
+
+```bash
+docker compose -f docker-compose.media.yml up -d
+```
+
+Then open `http://127.0.0.1:9001`, sign in with the local MinIO development credentials, create a `school-media` bucket, configure browser CORS for the development origin, and allow public reads for that **development bucket only**. Do not copy development credentials or public-write policies to production.
+
+If Docker/MinIO is not available, keep `MEDIA_STORAGE_DRIVER=local`; no external account or card is required.
+
+### Utility commands
+
+```bash
+# Create a custom-format PostgreSQL backup
+node scripts/backup-database.mjs
+
+# Generate a redacted schema and row-count report
+node scripts/database-report.mjs
+
+# Restore only after checking the target database carefully
+ALLOW_RESTORE=YES BACKUP_FILE=.data/backups/<file>.dump node scripts/restore-database.mjs
+```
+
+### Next approved implementation section
+
+1. ~~Test the local upload and WebP pipeline from mobile and desktop admin.~~ ✅ Verified (see Phase 2.8 verification above; retest from a physical phone before production).
+2. Test a real local MinIO instance and browser CORS/direct signed uploads (requires Docker on the developer machine).
+3. ~~Add media picker integration to News, Gallery, Staff and the universal visual editor.~~ ✅ Done — News, Gallery and the universal visual editor (Staff portraits use presets; no URL field exists there yet).
+4. ~~Add `media_usage` synchronization so used assets cannot be trashed.~~ ✅ Done — posts, gallery frames and visual page patches are synced on every mutation.
+5. Only then proceed to Supabase PostgreSQL migration.
+
+---
+
+## 1. Product Vision
+
+The platform should remain:
+
+- Premium and cinematic on the public website.
+- Safe and simple enough for school staff to manage from a phone.
+- Low-cost at school-scale traffic.
+- Secure enough for admission applications and administrative records.
+- Independent of local server storage.
+- Easy to migrate, back up and restore.
+- Extendable without repeatedly rewriting the same pages.
+
+The administration experience follows a hybrid model:
+
+- **Visual editor:** marketing pages and normal page content.
+- **Structured managers:** news, events, gallery, staff, admissions, appointments and inquiries.
+- **Media library:** categorized R2 assets with upload, processing, usage tracking and safe deletion.
+
+---
+
+## 2. Current Project State
+
+### Public website
+
+Implemented public areas include:
+
+- Home
+- History
+- Vision & Mission
+- Principal's Message
+- Staff
+- Ordinary Level and online resources
+- Advanced Level and four stream detail pages
+- Exam Results
+- Achievements
+- Clubs & Societies
+- Sports
+- Cadeting and five cinematic unit pages
+- News & Events
+- Gallery
+- Admissions
+- Contact and appointment booking
+
+### Admin system
+
+Implemented functionality includes:
+
+- Secure first-admin setup and custom session authentication.
+- Mobile-first dark admin dashboard.
+- Full-width visual editor over the original website.
+- Draft, publish, discard and revision workflows.
+- Universal element-level visual editing.
+- News/blog manager.
+- Events manager.
+- Gallery manager.
+- Staff manager.
+- Media asset browser for preloaded images.
+- Custom content collections/categories.
+- Admission applications and department appointments.
+- Audit records.
+
+### Current infrastructure
+
+- Next.js App Router
+- React
+- PostgreSQL
+- Drizzle ORM
+- Local/public image assets and external image URLs
+- Custom password/session authentication
+
+### Target infrastructure
+
+- **Application:** Next.js remains unchanged.
+- **Database:** Supabase PostgreSQL accessed through Drizzle.
+- **Authentication:** Supabase Auth using `@supabase/ssr`.
+- **Roles:** application profiles/roles plus server-side permission checks.
+- **Media:** Cloudflare R2 with a custom media domain.
+- **Image delivery:** optimized WebP masters and responsive variants, optionally assisted by Cloudflare Image Transformations.
+
+---
+
+## 3. Final Architecture Recommendation
+
+```text
+Browser / Mobile Admin
+        |
+        |-- Public Website
+        |-- Visual Editor
+        |-- Structured Managers
+        |
+Next.js App Router
+        |
+        |-- Supabase Auth verification
+        |-- Server-side permission layer
+        |-- Drizzle ORM
+        |-- R2 signed-upload API
+        |
+        |---- Supabase PostgreSQL
+        |       |-- content
+        |       |-- operational records
+        |       |-- profiles and roles
+        |       |-- media metadata
+        |       |-- audit logs
+        |
+        |---- Cloudflare R2
+                |-- WebP masters
+                |-- thumbnails
+                |-- optional originals
+                |-- documents
+                |-- temporary uploads
+```
+
+### Why this architecture
+
+- Drizzle can continue to power all existing database code.
+- Supabase Auth replaces only authentication/session logic; content APIs do not need a full rewrite.
+- Direct signed uploads prevent large images from travelling through the Next.js hosting provider.
+- R2 provides inexpensive object storage with no direct R2 egress fees.
+- The database stores metadata and references, not binary files.
+- Roles are checked on every server mutation instead of trusting the browser UI.
+
+---
+
+# 4. Phase 2 Implementation Roadmap
+
+The migration must be completed in small, independently testable sections. Do not combine database, authentication and media cutovers in one release.
+
+---
+
+## Phase 2.1 — Preparation, Backups & Environment Abstraction
+
+### Goal
+
+Make the current project safe to migrate without changing production behavior.
+
+### Work
+
+1. Create a staging environment separate from production.
+2. Export the current PostgreSQL schema and all data.
+3. Save an off-site SQL backup.
+4. Record current row counts for every table.
+5. Record existing admin users, media URLs and page revisions.
+6. Add an infrastructure health page visible only to super admins.
+7. Document all current environment variables without storing secret values in Git.
+8. Add database migration scripts instead of relying only on schema push.
+9. Add a migration/cutover maintenance mode.
+10. Add a rollback switch so the application can temporarily return to the previous database URL.
+
+### Deliverables
+
+- Verified SQL backup.
+- Table-by-table row count report.
+- Staging deployment.
+- Environment variable template.
+- Rollback checklist.
+
+### Definition of Done
+
+- The current application can be rebuilt from a fresh database backup.
+- The backup restore has been tested, not merely created.
+- No production data changes are required yet.
+
+---
+
+## Phase 2.2 — Supabase PostgreSQL Migration
+
+### Recommendation
+
+Migrate the database **before** migrating authentication. Keep the current custom authentication running temporarily while verifying the new Supabase database.
+
+### Connection strategy
+
+Use:
+
+- `DATABASE_URL`: Supabase Shared Pooler / transaction mode for the running Next.js application.
+- `DIRECT_DATABASE_URL`: direct connection for migrations and administrative operations.
+
+Continue using Drizzle ORM.
+
+### Work
+
+1. Create a Supabase project in the closest suitable region.
+2. Configure database passwords and network settings.
+3. Create all existing tables in Supabase using migrations.
+4. Import current content and operational data.
+5. Reset database sequences after import.
+6. Verify timestamps, JSON columns, unique constraints and indexes.
+7. Point staging to Supabase's pooler URL.
+8. Test all public reads.
+9. Test all admin writes.
+10. Test admissions, appointments and contact submissions.
+11. Compare source and destination row counts.
+12. Run a second delta import immediately before production cutover.
+
+### Drizzle notes
+
+- Keep Drizzle as the application's single content/database ORM.
+- Supabase documentation recommends using the Connection Pooler for Drizzle.
+- Transaction-pooling drivers may require prepared statements to be disabled, depending on the selected PostgreSQL driver.
+- Do not expose direct database credentials to the browser.
+
+### RLS decision
+
+The recommended initial model is **server-owned writes**:
+
+- The browser does not write content tables directly.
+- Next.js APIs verify Supabase Auth and permissions.
+- Drizzle performs the mutation server-side.
+- Sensitive tables are not publicly readable through Supabase Data APIs.
+
+RLS should still be enabled where Data API access exists, but application authorization must not depend only on hiding admin buttons.
+
+### Backup warning
+
+Supabase Free projects do not include the same automatic backup access as paid plans. Until a paid plan is used:
+
+- Schedule regular `supabase db dump` or `pg_dump` exports.
+- Store backups outside the Supabase project.
+- Run restore tests.
+- Retain at least seven recent daily copies and four weekly copies.
+
+### Definition of Done
+
+- Every existing table and row is present in Supabase.
+- Public pages and all admin managers pass regression testing.
+- New submissions write only to Supabase.
+- No local database dependency remains in production.
+- A tested rollback procedure exists.
+
+---
+
+## Phase 2.3 — Supabase Auth & Role Management
+
+### Recommendation
+
+Use `@supabase/ssr` with cookie-based sessions for Next.js App Router.
+
+Do not use deprecated Auth Helpers.
+
+For authorization decisions:
+
+- Verify the authenticated identity server-side using trusted claims or a fresh user lookup.
+- Never trust an unverified client session object.
+- Never use user-editable metadata as the sole permission source.
+
+### Authentication policy
+
+- Public self-signup disabled.
+- Accounts are invite-only.
+- Email confirmation required.
+- MFA required for super admins.
+- Password recovery enabled.
+- Disabled users lose access immediately.
+- Shorter sessions for high-risk roles are preferred.
+
+### Recommended roles
+
+```text
+super_admin
+content_editor
+news_editor
+gallery_editor
+staff_editor
+admissions_officer
+viewer
+```
+
+### Recommended permission matrix
+
+| Module | Super Admin | Content | News | Gallery | Staff | Admissions | Viewer |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Visual pages | Full | Edit | Read | Read | Read | Read | Read |
+| News | Full | Read | Edit | Read | Read | Read | Read |
+| Events | Full | Read | Edit | Read | Read | Read | Read |
+| Gallery | Full | Read | Read | Edit | Read | Read | Read |
+| Media | Full | Upload | Upload | Upload | Upload | Read | Read |
+| Staff | Full | Read | Read | Read | Edit | Read | Read |
+| Admissions | Full | None | None | None | None | Edit | Read-only |
+| Appointments | Full | None | None | None | None | Edit | Read-only |
+| Settings | Full | Limited | None | None | None | None | None |
+| Roles/users | Full | None | None | None | None | None | None |
+
+### Database model
+
+```text
+profiles
+  user_id              uuid, references auth.users
+  display_name
+  role
+  active
+  avatar_asset_id
+  last_seen_at
+  created_at
+  updated_at
+
+role_permissions       optional future normalization
+admin_audit_logs       already exists; migrate user IDs to UUID-compatible form
+```
+
+### Migration from current auth
+
+Do not migrate password hashes directly.
+
+Recommended process:
+
+1. Invite the existing administrator through Supabase Auth.
+2. Confirm the new login works.
+3. Assign `super_admin` in `profiles`.
+4. Run both auth systems briefly only in staging.
+5. Switch server guards to Supabase.
+6. Revoke and delete old custom sessions.
+7. Archive or remove obsolete custom auth tables after a safety period.
+
+### Definition of Done
+
+- Each role sees only its permitted admin modules.
+- Every API mutation enforces permissions server-side.
+- Unauthorized API calls return 401 or 403.
+- Super admin MFA works.
+- Account deactivation immediately blocks access.
+- Audit logs identify Supabase user IDs.
+- Current custom auth can be safely removed.
+
+---
+
+## Phase 2.4 — Cloudflare R2 Foundation
+
+### Recommendation
+
+Use a dedicated R2 bucket and custom media domain, for example:
+
+```text
+media.stcmatale.lk
+```
+
+Use the **Standard** storage class initially. School website assets are frequently accessed and should not incur retrieval fees.
+
+### Current official R2 cost envelope
+
+At the time this roadmap was written, Cloudflare documents:
+
+- 10 GB-month Standard storage included per month.
+- 1 million Class A operations included per month.
+- 10 million Class B operations included per month.
+- Direct R2 egress to the Internet is free.
+- Standard storage beyond the allowance is listed at a low per-GB monthly price.
+
+Pricing can change; verify the official pricing page before implementation.
+
+### Bucket design
+
+Use one production bucket initially, with clear prefixes:
+
+```text
+temporary/
+originals/
+images/site/
+images/news/YYYY/
+images/gallery/campus/
+images/gallery/academics/
+images/gallery/sports/
+images/gallery/arts-culture/
+images/staff/
+images/cadeting/army/
+images/cadeting/eastern-band/
+images/cadeting/western-band/
+images/cadeting/police-cadet/
+images/cadeting/scouts/
+documents/admissions/
+documents/academics/
+trash/
+```
+
+### Direct upload flow
+
+```text
+Authenticated admin chooses file
+        ↓
+Browser validates size/type
+        ↓
+Next.js creates one short-lived signed PUT URL
+        ↓
+Browser uploads directly to R2
+        ↓
+Server verifies object metadata
+        ↓
+Image processing runs
+        ↓
+Metadata record becomes ready
+```
+
+### Signed URL security
+
+- Generate an unpredictable server-controlled object key.
+- Never accept a complete client-provided R2 key.
+- Restrict `Content-Type` in the signed PUT operation.
+- Use a short expiry, ideally 5–10 minutes.
+- Allow only the exact R2 bucket and object.
+- Configure R2 CORS for the real admin origin only.
+- Keep R2 access key and secret server-side.
+- Enforce per-file and per-user upload limits.
+- Verify the resulting object after upload.
+
+### Recommended upload limits
+
+- Images: maximum 15–20 MB before browser compression.
+- Processed master: maximum 3–4 MB.
+- Documents: maximum based on business need, initially 20 MB.
+- Video: do not upload through this system initially; use YouTube/Vimeo embeds.
+
+### Delivery and caching
+
+Use content-hashed object names:
+
+```text
+images/gallery/sports/big-match.ab12cd34.webp
+```
+
+Recommended cache header:
+
+```text
+Cache-Control: public, max-age=31536000, immutable
+```
+
+Replacing an image creates a new object key. Do not overwrite a cached object at the same URL.
+
+### Definition of Done
+
+- Signed direct upload succeeds without proxying bytes through Next.js.
+- Upload URL cannot write another object key.
+- R2 CORS works only for approved origins.
+- Custom media domain serves files through Cloudflare cache.
+- Secrets are never exposed to the browser or committed to Git.
+- Failed temporary uploads are cleaned automatically.
+
+---
+
+## Phase 2.5 — Image Processing & WebP Pipeline
+
+### Main recommendation for low cost
+
+Use a two-layer strategy:
+
+1. **Browser pre-processing** for speed and reduced upload size.
+2. **Server/Worker authoritative validation and transformation** for consistency and safety.
+
+Do not rely only on browser conversion.
+
+### Low-cost rollout
+
+#### Initial release
+
+- Browser resizes large phone photos to a maximum long edge of 2560 px.
+- Browser converts to WebP around quality 80–84.
+- A small blurred/thumbnail WebP is generated.
+- Processed assets upload directly to R2 through signed URLs.
+- Server verifies extension, content type, dimensions, size and ownership.
+
+#### Later optimization
+
+Use Cloudflare Image Transformations for automatic width/format negotiation if usage and budget justify it. Cloudflare documentation indicates that image transformations can operate on assets stored outside Cloudflare Images, including R2; pricing and included transformations must be verified before enabling production usage.
+
+A Worker with an Images binding can also transform bytes from R2 before writing variants, but some workflows require Cloudflare Images paid capabilities. Do not assume all upload-time transformations are free.
+
+### Recommended outputs
+
+For a typical photograph:
+
+```text
+master.webp         max 2560 px, quality ~82
+large.webp          1920 px, quality ~80
+medium.webp         1280 px, quality ~79
+small.webp           640 px, quality ~76
+thumbnail.webp       320 px, quality ~72
+```
+
+AVIF is optional. Start with WebP for predictable compatibility and processing cost.
+
+### Asset-type presets
+
+| Asset | Master max | Crop | Notes |
+|---|---:|---|---|
+| Hero | 2560 px | landscape | protect focal point |
+| Gallery landscape | 1920 px | none | preserve composition |
+| Gallery portrait | 1600 px | none | portrait metadata |
+| Staff portrait | 1200 px | 4:5 optional | face focal point |
+| News cover | 1920 px | 16:10 preview | original crop preserved |
+| Logo/crest | original | none | preserve SVG/PNG where appropriate |
+
+### Privacy and safety
+
+Processing must:
+
+- Auto-rotate based on orientation metadata.
+- Strip EXIF data.
+- Strip GPS coordinates.
+- Reject unsupported/corrupt files.
+- Confirm real file signatures instead of trusting extensions.
+- Limit pixel dimensions to prevent decompression bombs.
+- Prevent SVG script injection; sanitize or disallow arbitrary SVG uploads.
+
+### Originals policy
+
+Recommended low-budget approach:
+
+- Retain originals only for hero, archival and historically significant photos.
+- Mark temporary originals for deletion after 7–30 days.
+- Keep processed WebP masters permanently.
+- Use lifecycle cleanup for abandoned uploads.
+
+### Definition of Done
+
+- A large phone JPEG becomes consistent WebP variants.
+- Orientation is correct.
+- GPS and EXIF data are removed.
+- Variants are recorded in the database.
+- Processing failure is visible in admin UI and retryable.
+- Failed jobs leave no public broken assets.
+
+---
+
+## Phase 2.6 — Media Metadata Model
+
+### Tables
+
+```text
+media_assets
+  id                    uuid
+  title
+  alt_text
+  caption
+  folder
+  category
+  status                uploading | processing | ready | failed | trashed
+  original_key
+  original_filename
+  mime_type
+  width
+  height
+  original_size
+  dominant_color
+  blur_data_url
+  content_hash
+  focal_x
+  focal_y
+  uploaded_by
+  created_at
+  updated_at
+  deleted_at
+
+media_variants
+  id
+  asset_id
+  variant_name          thumbnail | small | medium | large | master
+  format
+  width
+  height
+  r2_key
+  file_size
+  public_url
+  created_at
+
+media_usage
+  id
+  asset_id
+  entity_type           page | post | gallery | staff | event
+  entity_id
+  field_name
+  page_path
+  created_at
+```
+
+### Important constraints
+
+- `content_hash` should prevent duplicate uploads.
+- An asset cannot be permanently deleted while active usage rows exist.
+- Replacing an image creates new variant keys.
+- Trashing an asset does not immediately delete R2 objects.
+- Permanent deletion should require super-admin permission.
+
+---
+
+## Phase 2.7 — Categorized Media Library Redesign
+
+### Reason for delaying until after R2
+
+The current browser only displays existing URLs. Building the final library before the R2 object model and metadata tables exist would require rewriting it twice.
+
+### Desktop layout
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ Search | Type | Orientation | Year | Sort | Upload           │
+├───────────────┬─────────────────────────────────────────────┤
+│ All Media     │ Thumbnail grid                              │
+│ Recent        │                                             │
+│ Site Assets   │                                             │
+│ News          │                                             │
+│ Gallery       │                                             │
+│  ├ Campus     │                                             │
+│  ├ Academics  │                                             │
+│  ├ Sports     │                                             │
+│  └ Arts       │                                             │
+│ Staff         │                                             │
+│ Cadeting      │                                             │
+│ Documents     │                                             │
+│ Unused        │                                             │
+│ Trash         │                                             │
+└───────────────┴─────────────────────────────────────────────┘
+```
+
+### Mobile layout
+
+- Two-column thumbnail grid.
+- Folder/category switcher in a bottom sheet.
+- Floating Upload button.
+- Full-screen asset detail panel.
+- Sticky search bar.
+- Filter and sort sheets.
+- Large touch targets.
+
+### Asset card
+
+Each card displays:
+
+- Thumbnail
+- Title
+- Dimensions
+- File size
+- Format
+- Folder/category
+- Usage count
+- Processing status
+
+### Asset detail drawer
+
+- Large preview
+- Title
+- Alt text
+- Caption
+- Folder
+- Category
+- Focal point control
+- Dimensions and file sizes
+- Available variants
+- R2 object key
+- Public URL
+- Usage locations
+- Replace
+- Copy URL
+- Download original, where permitted
+- Move to trash
+
+### Filters
+
+- Images / Documents / Video embeds
+- Folder
+- Category
+- Year
+- Landscape / Portrait / Square
+- Uploaded by
+- Used / Unused
+- Ready / Processing / Failed
+- Newest / Oldest / Largest / Smallest
+
+### Definition of Done
+
+- Admins can understand the library without seeing one stressful infinite grid.
+- Uploading from a phone works reliably.
+- Search and filters remain usable with thousands of assets.
+- Clicking an image opens details instead of immediately copying a URL.
+- Unused assets can be identified.
+- Used assets cannot be accidentally deleted.
+
+---
+
+## Phase 2.8 — CMS and Content Manager Integration
+
+### Goal
+
+Replace manual image URL fields with an asset picker.
+
+### Integration points
+
+- Universal visual editor image inspector
+- Home/History section editor
+- News cover images
+- Gallery frame images
+- Staff portraits
+- A/L building images
+- Sports/cadeting images
+- Settings logo/brand assets
+
+### Picker behavior
+
+1. Open Media Picker.
+2. Show context-relevant folder/category first.
+3. Select asset.
+4. Pick focal point/crop where applicable.
+5. Store `asset_id` plus resolved public URL.
+6. Create a `media_usage` record.
+7. Remove previous usage reference safely.
+
+### Migration compatibility
+
+During transition, fields should support:
+
+- Existing `/images/...` URLs.
+- Existing external Pexels URLs.
+- New R2 asset URLs.
+- New `media_asset_id` references.
+
+Do not break existing pages while migration is incomplete.
+
+---
+
+## Phase 2.9 — Existing Media Migration
+
+### Steps
+
+1. Inventory every image URL used by the website and database.
+2. Download or locate source files where legally permitted.
+3. Compute content hashes and remove duplicates.
+4. Process variants.
+5. Upload to R2.
+6. Insert media metadata and variants.
+7. Update content references in batches.
+8. Verify every page visually.
+9. Run a broken-image crawler.
+10. Keep old paths operational during a safety window.
+11. Remove old public assets only after final approval.
+
+### Externally sourced images
+
+Before copying external stock images into R2, confirm that the license allows storage and redistribution. Keep source/attribution metadata where required.
+
+---
+
+## Phase 2.10 — Hardening, Backups & Launch
+
+### Required checks
+
+- Auth role test matrix.
+- RLS policy tests where applicable.
+- API permission tests.
+- Signed upload abuse tests.
+- Upload size/type tests.
+- Duplicate image test.
+- Broken image test.
+- Mobile upload test on weak connectivity.
+- Database restore test.
+- R2 object restoration/versioning plan.
+- Content publish/revision restore tests.
+- Admin account disable test.
+- Audit log completeness.
+
+### Operational jobs
+
+- Nightly database dump on Free plan.
+- Temporary R2 object cleanup.
+- Failed processing cleanup.
+- Orphan media usage scan.
+- Revision retention cleanup.
+- Audit retention cleanup.
+- Broken link/image monitoring.
+
+---
+
+# 5. Environment Variables — Future Target
+
+Do not place secret values in this README or Git.
+
+```text
+# Supabase public
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+
+# Supabase server
+SUPABASE_SECRET_KEY=
+DATABASE_URL=                  # Pooler connection
+DIRECT_DATABASE_URL=           # Migration/direct connection
+
+# Cloudflare R2 server-only
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET=
+R2_PUBLIC_BASE_URL=https://media.example.com
+
+# Optional Cloudflare image processing
+CLOUDFLARE_IMAGES_ACCOUNT_HASH=
+CLOUDFLARE_IMAGES_TOKEN=
+
+# Application
+NEXT_PUBLIC_APP_URL=
+```
+
+### Secret rules
+
+- Never prefix R2 or Supabase secret keys with `NEXT_PUBLIC_`.
+- Never send service-role/secret credentials to the browser.
+- Rotate secrets after accidental exposure.
+- Separate staging and production credentials.
+
+---
+
+# 6. Cost-Control Recommendation
+
+For the intended school-scale workload, the recommended starting point is:
+
+- Supabase Free during development/staging if limits are acceptable.
+- Supabase Pro for production when uptime and automatic daily backups are required.
+- R2 Standard with the free monthly allowance initially.
+- WebP-first media pipeline.
+- No self-hosted video.
+- No large binary files in PostgreSQL.
+- No unnecessary realtime subscriptions.
+- No automatic generation of dozens of unused image variants.
+
+### Current Supabase free-plan considerations
+
+The official pricing page currently describes, among other limits:
+
+- 500 MB database size.
+- 50,000 monthly active users.
+- 5 GB egress plus cached egress allowance.
+- Free projects can pause after inactivity.
+- Automatic backups are not included at the same level as Pro.
+
+Verify limits before production launch.
+
+### Expected media behavior
+
+A school site with several thousand optimized images can often remain inexpensive on R2, especially when:
+
+- Images are WebP.
+- Duplicates are detected.
+- Originals are cleaned according to policy.
+- Public delivery uses Cloudflare cache.
+- Video remains external.
+
+---
+
+# 7. Rollback Strategy
+
+Every infrastructure change must be reversible.
+
+## Database rollback
+
+- Keep the pre-migration PostgreSQL backup.
+- Keep old database credentials available but disabled.
+- Maintain a deployment version that supports the old schema until acceptance.
+- If Supabase cutover fails, restore the previous deployment and database URL.
+
+## Authentication rollback
+
+- Do not delete custom auth tables during the first Supabase Auth release.
+- Keep the old auth code in a rollback branch.
+- Remove old auth only after stable production use and account recovery testing.
+
+## R2 rollback
+
+- Keep old public image paths working during migration.
+- Update image references gradually.
+- Do not delete old assets until all pages pass visual and broken-link checks.
+- Store an export of media metadata and R2 object keys.
+
+---
+
+# 8. Future Phase 3
+
+After infrastructure and media are stable, Phase 3 should focus on operations:
+
+- Admissions workflow dashboard.
+- Appointment calendar and confirmation.
+- Contact inbox.
+- Status changes and internal notes.
+- CSV export.
+- Email notifications.
+- Role administration.
+- Full audit viewer.
+- Analytics and content health.
+- Scheduled publishing.
+- Expired announcement handling.
+
+Do not start Phase 3 before Supabase Auth, roles, R2 and media usage tracking are production-stable.
+
+---
+
+# 9. Recommended Next Implementation Session
+
+Start with **Phase 2.1 only**.
+
+### Exact first-session scope
+
+1. Create migration/backup documentation.
+2. Add `.env.example` with placeholders only.
+3. Add database migration tooling/configuration.
+4. Produce table row-count and schema reports.
+5. Add staging readiness checks.
+6. Do not change authentication.
+7. Do not change media storage.
+8. Do not change production database yet.
+
+Once Phase 2.1 is tested and accepted, proceed to Phase 2.2 Supabase PostgreSQL migration.
+
+---
+
+# 10. Continuation Checklist for Future AI/Developer Sessions
+
+Before changing code:
+
+- Read this README completely.
+- Inspect the current schema and migration history.
+- Confirm which Phase 2 sub-phase is approved.
+- Do not combine unapproved phases.
+- Back up before database changes.
+- Preserve mobile-first admin usability.
+- Preserve existing URLs and published content.
+- Test draft/publish behavior after every change.
+- Run Next route type generation, TypeScript and production build.
+- End with a production server/healthcheck validation.
+
+After changing code:
+
+- Record completed work in this README.
+- Record new environment variables.
+- Record schema migrations.
+- Record rollback instructions.
+- Record tests performed.
+- Do not mark a sub-phase complete until its Definition of Done passes.
+
+---
+
+# 11. Decision Log
+
+## Accepted decisions
+
+- Next.js remains the application framework.
+- Drizzle remains the ORM.
+- Supabase is the target PostgreSQL and authentication provider.
+- Cloudflare R2 is the target media/document object storage provider.
+- R2 uploads should be direct from the browser through signed URLs.
+- Image processing is WebP-first.
+- Media metadata is stored in PostgreSQL.
+- Visual page editing and structured content managers remain separate.
+- Media Library is rebuilt only after the R2/media metadata model is ready.
+- Public signup is disabled; admin access is invite-only.
+
+## Decisions still required before implementation
+
+- Production Supabase plan: Free or Pro.
+- Final Supabase region.
+- Production media domain.
+- Keep or delete original images after processing.
+- Use browser + Sharp, browser + Worker, or Cloudflare Image Transformations for authoritative variants.
+- Exact backup destination and schedule.
+- MFA enforcement policy for non-super-admin roles.
+- Revision and audit-log retention duration.
+
+---
+
+# 12. Official References
+
+Review current official documentation immediately before implementation because pricing and platform behavior can change.
+
+- Cloudflare R2 pricing: https://developers.cloudflare.com/r2/pricing/
+- Cloudflare R2 presigned URLs: https://developers.cloudflare.com/r2/api/s3/presigned-urls/
+- Cloudflare R2 uploads: https://developers.cloudflare.com/r2/objects/upload-objects/
+- Cloudflare Image Transformations: https://developers.cloudflare.com/images/optimization/transformations/
+- Cloudflare Images pricing: https://developers.cloudflare.com/images/pricing/
+- Supabase pricing: https://supabase.com/pricing
+- Supabase Next.js guide: https://supabase.com/docs/guides/getting-started/tutorials/with-nextjs
+- Supabase Auth: https://supabase.com/docs/guides/auth
+- Supabase Drizzle guide: https://supabase.com/docs/guides/database/drizzle
+- Supabase database connections: https://supabase.com/docs/guides/database/connecting-to-postgres
+- Supabase database backups: https://supabase.com/docs/guides/platform/backups
+
+---
+
+_Last updated: 2026. Update this roadmap as each sub-phase is approved and completed._

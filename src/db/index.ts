@@ -60,26 +60,10 @@ function getPglite(): PGlite {
 function getPool(): Pool {
   if (!globalForDb.__schoolPool) {
     const isSupabase = /supabase\.(co|com)/.test(rawUrl);
-    /* v2.8.66.1 — EMAXCONNSESSION fix. Supavisor (the Supabase pooler)
-       allows only 15 server-side clients in SESSION mode; a Vercel
-       deployment runs several function instances and 10 connections each
-       blew straight past the cap (every query died with XX000 "max clients
-       reached in session mode - max clients are limited to pool_size: 15").
-       Default to a small per-process pool; DATABASE_POOL_MAX raises it for
-       long-lived hosts. On Vercel, pair this with the transaction-mode
-       pooler (SITE_DATABASE_URL port 6543): clients then multiplex over the
-       shared backends — Supabase's recommended serverless setup (this app
-       uses no named prepared statements / LISTEN, and drizzle transactions
-       work unchanged). */
-    const poolMaxRaw = Number(process.env.DATABASE_POOL_MAX || "");
-    const max =
-      Number.isFinite(poolMaxRaw) && poolMaxRaw >= 1
-        ? Math.floor(poolMaxRaw)
-        : 4;
     globalForDb.__schoolPool = new Pool({
       connectionString: rawUrl,
-      max,
-      idleTimeoutMillis: 10_000,
+      max: 10,
+      idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 15_000,
       // Supabase poolers present a Supavisor certificate chain — the strict
       // default CA check fails there, so relax it for these known hosts.

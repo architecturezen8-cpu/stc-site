@@ -7,5 +7,5 @@
  * - feature: completed feature package
  * - patch: fixes within that package
  */
-export const APP_VERSION = "2.8.66.3";
+export const APP_VERSION = "2.8.66.4";
 export const APP_VERSION_LABEL = `Version ${APP_VERSION}`;

@@ -25,12 +25,12 @@ import { ensureSchemaExtras } from "@/lib/schema-extras";
 
 export type PortalChoice = {
   email: string;
-  roles: ("student" | "teacher" | "parent" | "principal")[];
+  roles: ("student" | "teacher" | "parent")[];
 };
 
 const TTL_MS = 10 * 60 * 1000;
 
-const PORTAL_ROLE_VALUES = ["student", "teacher", "parent", "principal"] as const;
+const PORTAL_ROLE_VALUES = ["student", "teacher", "parent"] as const;
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");

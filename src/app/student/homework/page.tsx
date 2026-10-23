@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { X } from "lucide-react";
 import { PortalShell } from "@/components/portal/portal-shell";
 import { StudentHomework } from "@/components/portal/student-homework";
 import { HeroRow, Panel } from "@/components/portal/dashboard-widgets";
@@ -17,34 +15,17 @@ export const metadata: Metadata = {
  * the full grid, every item, no dashboard squeeze. The dashboard keeps only
  * the urgent slice ("ikmanata iwara karanna ona homewors tika") and links
  * here; the nav's Homework pill lands here too.
- *
- * v2.8.61.0 — ?subject=<name> filters the list (the My Subjects tiles on
- * the dashboard link here per subject; the chip clears it in one tap).
  */
-export default async function StudentHomeworkListPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ subject?: string }>;
-}) {
+export default async function StudentHomeworkListPage() {
   const session = await requirePortal("student");
-  const [homework, chatBadge, params] = await Promise.all([
+  const [homework, chatBadge] = await Promise.all([
     getStudentHomework(session.accountId),
     chatUnreadBadge("student", session.accountId),
-    searchParams,
   ]);
 
-  /* The tiles pass the exact subject name; match loosely on whitespace
-     so a stray double-space in the timetable can't hide the work. */
-  const subjectFilter = (params.subject || "").trim().toLowerCase();
-  const visible = subjectFilter
-    ? homework.filter(
-        (h) => (h.subject || "").toLowerCase().replace(/\s+/g, " ") === subjectFilter,
-      )
-    : homework;
-
-  const pending = visible.filter((h) => h.status === "pending").length;
-  const submitted = visible.filter((h) => h.status === "submitted").length;
-  const graded = visible.filter((h) => h.status === "graded").length;
+  const pending = homework.filter((h) => h.status === "pending").length;
+  const submitted = homework.filter((h) => h.status === "submitted").length;
+  const graded = homework.filter((h) => h.status === "graded").length;
 
   return (
     <PortalShell
@@ -59,7 +40,6 @@ export default async function StudentHomeworkListPage({
         { label: "Homework", href: "/student/homework", active: true },
         { label: "Chat", href: "/student/chat", badge: chatBadge },
         { label: "Marks", href: "/student#marks" },
-        { label: "Report card", href: "/student/report-card" },
         { label: "Notices", href: "/student#notices" },
         { label: "Profile", href: "/student/profile" },
       ]}
@@ -70,7 +50,7 @@ export default async function StudentHomeworkListPage({
           firstName={session.fullName.trim().split(/\s+/)[0] || "Thomian"}
           secondaryLabel="This Term"
           secondaryValue={
-            visible.length > 0
+            homework.length > 0
               ? `${pending} pending · ${submitted} submitted · ${graded} graded`
               : "Nothing yet"
           }
@@ -80,17 +60,15 @@ export default async function StudentHomeworkListPage({
 
         <div className="pt-rise pt-d1">
           <Panel
-            title={subjectFilter ? `${params.subject} — Homework` : "My Homework"}
+            title="My Homework"
             subtitle={
-              visible.length > 0
-                ? `${visible.length} item${visible.length === 1 ? "" : "s"} · tap one to open it`
-                : subjectFilter
-                  ? `No ${params.subject} work right now`
-                  : "The list fills in as teachers set work"
+              homework.length > 0
+                ? `${homework.length} item${homework.length === 1 ? "" : "s"} · tap one to open it`
+                : "The list fills in as teachers set work"
             }
           >
             {/* Status chips — the same visual language as attendance. */}
-            {visible.length > 0 ? (
+            {homework.length > 0 ? (
               <div className="mb-4 flex flex-wrap gap-1.5">
                 <span className="rounded-full bg-[var(--pt-warn-bg)] px-2.5 py-1 text-[10.5px] font-semibold text-[var(--pt-warn-text)]">
                   Pending {pending}
@@ -103,20 +81,7 @@ export default async function StudentHomeworkListPage({
                 </span>
               </div>
             ) : null}
-            {/* v2.8.61.0 — the subject chip + one-tap clear. */}
-            {subjectFilter ? (
-              <div className="mb-4">
-                <Link
-                  href="/student/homework"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--pt-accent)] bg-[var(--pt-accent-soft)] px-3 py-1.5 text-[11px] font-semibold text-[var(--pt-accent-text)] transition-opacity hover:opacity-85"
-                >
-                  {params.subject}
-                  <X size={11} aria-hidden="true" />
-                  <span className="sr-only">Clear the subject filter</span>
-                </Link>
-              </div>
-            ) : null}
-            <StudentHomework items={visible} variant="full" />
+            <StudentHomework items={homework} variant="full" />
           </Panel>
         </div>
       </div>

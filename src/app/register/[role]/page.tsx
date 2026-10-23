@@ -35,8 +35,6 @@ export default async function PortalRoleRegisterPage({
 }) {
   const { role: roleParam } = await params;
   if (!isPortalRole(roleParam)) redirect("/register");
-  /* v2.8.63.0 — the Principal portal is invite-only: no public registration. */
-  if (roleParam === "principal") redirect("/register");
   const role: PortalRoleKey = roleParam;
 
   /* v2.8.37.1 — only THIS portal's session bounces; other portals are

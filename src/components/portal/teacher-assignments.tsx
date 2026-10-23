@@ -815,14 +815,11 @@ function SubmissionPanel({
   options,
   onGraded,
   onSaved,
-  onDeleted,
 }: {
   detail: TeacherAssignmentDetail;
   options: TeacherClassSubjectOption[];
   onGraded: (assignmentId: number) => void;
   onSaved: () => void;
-  /** v2.8.61.0 — the work was deleted: close the modal + refresh the list. */
-  onDeleted: () => void;
 }) {
   const [query, setQuery] = useState("");
   /* The parent mounts this panel with key={detail.id}, so a new assignment
@@ -849,8 +846,6 @@ function SubmissionPanel({
     () => detail.submissions.some((s) => s.status !== "pending"),
     [detail.submissions],
   );
-  /* v2.8.61.0 — the owner's delete option (hard delete, confirm first). */
-  const [deleting, setDeleting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editCsId, setEditCsId] = useState<number>(detail.classSubjectId);
   const [editTitle, setEditTitle] = useState(detail.title);
@@ -1016,46 +1011,6 @@ function SubmissionPanel({
     }
   }
 
-  /* v2.8.61.0 — DELETE the work outright: files, submissions, answers,
-     Q&A threads and groups go server-side in one transaction (the tests'
-     hard delete is the precedent). The parent closes the modal and
-     refreshes the list via onDeleted. */
-  async function removeAssignment() {
-    if (deleting) return;
-    const submitted = detail.submissions.filter((s) => s.status !== "pending").length;
-    const files = detail.files.length;
-    const bits = [
-      submitted > 0 ? `${submitted} submission${submitted === 1 ? "" : "s"}` : null,
-      files > 0 ? `${files} file${files === 1 ? "" : "s"}` : null,
-    ].filter(Boolean);
-    const extra = bits.length > 0 ? ` with ${bits.join(" and ")}` : "";
-    if (!window.confirm(`Delete "${detail.title}"${extra}? Its grades and Q&A threads go too. This cannot be undone.`)) {
-      return;
-    }
-    setDeleting(true);
-    setFlash(null);
-    try {
-      const res = await fetch(`/api/portal/assignments/${detail.id}`, {
-        method: "DELETE",
-        headers: portalRoleHeaders("teacher"),
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-      };
-      if (!res.ok || !json.ok) {
-        throw new Error(json.error || "Could not delete the assignment.");
-      }
-      onDeleted();
-    } catch (cause) {
-      setFlash({
-        ok: false,
-        text: cause instanceof Error ? cause.message : "Could not delete the assignment.",
-      });
-      setDeleting(false);
-    }
-  }
-
   return (
     <div className="space-y-3">
       {/* v2.8.58.0 — the work's identity (class · subject · title · due ·
@@ -1065,27 +1020,15 @@ function SubmissionPanel({
           v2.8.57.0 — flex-wrap so the locked note + button stack on narrow
           screens instead of forcing the panel past the viewport. */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setEditOpen((cur) => !cur)}
-            aria-expanded={editOpen}
-            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--pt-border)] px-3 text-[11px] font-semibold text-[var(--pt-heading)] transition-colors hover:border-[var(--pt-accent)]"
-          >
-            {editOpen ? <Lock size={11} /> : <Pencil size={11} />}
-            {editOpen ? "Close the editor" : "Edit this work"}
-          </button>
-          {/* v2.8.61.0 — the missing delete door (owner item 2). */}
-          <button
-            type="button"
-            onClick={() => void removeAssignment()}
-            disabled={deleting}
-            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-transparent bg-[var(--pt-danger-bg)] px-3 text-[11px] font-semibold text-[var(--pt-danger-text)] transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {deleting ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-            Delete this work
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setEditOpen((cur) => !cur)}
+          aria-expanded={editOpen}
+          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--pt-border)] px-3 text-[11px] font-semibold text-[var(--pt-heading)] transition-colors hover:border-[var(--pt-accent)]"
+        >
+          {editOpen ? <Lock size={11} /> : <Pencil size={11} />}
+          {editOpen ? "Close the editor" : "Edit this work"}
+        </button>
         {hasSubmissions ? (
           <span className="inline-flex items-center gap-1 text-[10.5px] text-[var(--pt-muted)]">
             <Lock size={10} /> class locked — students already submitted
@@ -2033,12 +1976,6 @@ export function TeacherAssignments({
                     /* the edit changed the work itself / group structure */
                     void refreshList();
                     if (detail) void loadDetail(detail.id);
-                  }}
-                  onDeleted={() => {
-                    /* v2.8.61.0 — gone is gone: close the modal, drop it
-                       from the list (and the student's homework with it). */
-                    closeRegister();
-                    void refreshList();
                   }}
                 />
               ) : null}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPortalSession } from "@/lib/portal-auth";
-import { getPrivateStorage } from "@/lib/storage";
+import { getStorage } from "@/lib/storage";
 import {
   MAX_FILE_BYTES,
   MAX_FILES_PER_GROUP,
@@ -109,7 +109,7 @@ export async function POST(req: Request) {
     }
 
     const uploaded = [];
-    const storage = getPrivateStorage();
+    const storage = getStorage();
     for (const file of files) {
       const ext = extensionFor(file.name || "");
       if (!ALLOWED_EXT.has(ext)) {

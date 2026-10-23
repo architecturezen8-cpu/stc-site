@@ -26,8 +26,6 @@ import {
   Menu,
   MessagesSquare,
   NotebookPen,
-  PenLine,
-  ScrollText,
   UsersRound,
   UserRound,
   X,
@@ -50,7 +48,6 @@ const PORTAL_SUB: Record<string, string> = {
   student: "Student Portal",
   teacher: "Teacher Portal",
   parent: "Parent Portal",
-  principal: "Principal Portal",
 };
 
 /** Icons for the mobile drawer list (label-driven — the nav data stays a
@@ -65,11 +62,6 @@ const NAV_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   /* v2.8.51.0 — the dedicated Chat section */
   Chat: MessagesSquare,
   Marks: GraduationCap,
-  /* v2.8.62.0 — the digital terminal report card */
-  "Report card": ScrollText,
-  /* v2.8.63.0 — the Principal's certification area */
-  Certify: ScrollText,
-  Signature: PenLine,
   /* v2.8.45.0 — Phase 3.1-e */
   Materials: BookOpen,
   Notices: Bell,
@@ -92,14 +84,10 @@ function iconFor(label: string) {
  * carries EVERY item; the desktop pill strip keeps only these labels per
  * role — null renders everything (nothing was trimmed).
  */
-const HEADER_NAV_LABELS: Record<
-  "student" | "teacher" | "parent" | "principal",
-  string[] | null
-> = {
-  student: ["Dashboard", "Homework", "Chat", "Report card", "Profile"],
+const HEADER_NAV_LABELS: Record<"student" | "teacher" | "parent", string[] | null> = {
+  student: ["Dashboard", "Homework", "Chat", "Profile"],
   teacher: ["Dashboard", "Assignments", "Chat", "Profile"],
-  parent: ["Dashboard", "Homework", "Marks", "Report card", "Profile"],
-  principal: ["Dashboard", "Certify", "Signature", "Profile"],
+  parent: ["Dashboard", "Homework", "Marks", "Profile"],
 };
 
 function initialsOf(name: string) {
@@ -141,7 +129,7 @@ export function PortalShell({
   nav,
   children,
 }: {
-  role: "student" | "teacher" | "parent" | "principal";
+  role: "student" | "teacher" | "parent";
   name: string;
   email: string;
   avatarUrl?: string | null;

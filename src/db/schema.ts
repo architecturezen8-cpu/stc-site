@@ -508,10 +508,6 @@ export const mediaBlobs = pgTable("media_blobs", {
   contentType: varchar("content_type", { length: 80 }).notNull().default("application/octet-stream"),
   byteSize: integer("byte_size").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
-  /** v2.8.65.0 — stamped by the B2 backfill once the object is verified on
-   *  the S3 provider; /api/media/file then 302s the browser straight there
-   *  so image bytes never transit the app server. NULL = still DB-only. */
-  s3MigratedAt: timestamp("s3_migrated_at", { withTimezone: true }),
 });
 
 /** ── Announcement popups (events / live / special messages) ─────────────── */

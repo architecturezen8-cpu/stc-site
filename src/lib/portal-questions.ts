@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { ensureLmsPerson } from "@/lib/lms-identity";
 import { MAX_CHAT_FILE_BYTES as MAX_CHAT_FILE_BYTES_LIMIT, MAX_CHAT_TEXT_LENGTH } from "@/lib/chat-limits";
 import { ALLOWED_FILE_EXTS, extensionFor, mimeForExtension } from "@/lib/file-types";
-import { getPrivateStorage } from "@/lib/storage";
+import { getStorage } from "@/lib/storage";
 import {
   lmsAssignmentQuestions,
   lmsAssignments,
@@ -103,7 +103,7 @@ async function storeChatFile(file: ChatFileUpload): Promise<FileVerdict> {
   const key = `lms-chat/${Date.now().toString(36)}-${randomBytes(12).toString("hex")}`;
   const mime = mimeForExtension(ext) ?? "application/octet-stream";
   try {
-    await getPrivateStorage().putObject({
+    await getStorage().putObject({
       key,
       body: file.bytes,
       contentType: mime,
@@ -118,7 +118,7 @@ async function storeChatFile(file: ChatFileUpload): Promise<FileVerdict> {
 /** Drop a just-stored blob when its message row failed to save. */
 async function discardChatFile(stored: StoredChatFile | null): Promise<void> {
   if (!stored) return;
-  await getPrivateStorage().deleteObject(stored.key).catch(() => undefined);
+  await getStorage().deleteObject(stored.key).catch(() => undefined);
 }
 
 export type QuestionMessage = {
@@ -730,7 +730,7 @@ export async function deleteOwnQuestion(input: {
   if (updated.length === 0) return { ok: false, error: "not_found" };
 
   if (row.objectKey) {
-    await getPrivateStorage().deleteObject(row.objectKey).catch(() => undefined);
+    await getStorage().deleteObject(row.objectKey).catch(() => undefined);
   }
   return { ok: true };
 }

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPortalSession } from "@/lib/portal-auth";
 import {
-  deleteAssignment,
   getTeacherAssignmentDetail,
   updateAssignment,
 } from "@/lib/portal-assignments";
@@ -97,39 +96,6 @@ export async function PATCH(req: Request, ctx: Ctx) {
   } catch {
     return NextResponse.json(
       { ok: false, error: "Could not save the assignment." },
-      { status: 500 },
-    );
-  }
-}
-
-/**
- * v2.8.61.0 — the owner's delete option: the work, its files, every
- * submission + answer file, the Q&A threads and the groups go together
- * (one transaction server-side; ownership re-checked here too).
- */
-export async function DELETE(_req: Request, ctx: Ctx) {
-  const session = await getPortalSession("teacher");
-  if (!session) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
-  if (session.role !== "teacher") {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
-
-  const id = Number((await ctx.params).id);
-  if (!Number.isInteger(id) || id <= 0) {
-    return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
-  }
-
-  try {
-    const result = await deleteAssignment(session.accountId, id);
-    if (!result.ok) {
-      return NextResponse.json(result, { status: 400 });
-    }
-    return NextResponse.json(result);
-  } catch {
-    return NextResponse.json(
-      { ok: false, error: "Could not delete the assignment." },
       { status: 500 },
     );
   }

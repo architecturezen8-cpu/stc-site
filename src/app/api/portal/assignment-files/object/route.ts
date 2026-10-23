@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPortalSession } from "@/lib/portal-auth";
 import { getLmsAdminSession } from "@/lib/lms-admin-auth";
-import { getPrivateStorage } from "@/lib/storage";
+import { getStorage } from "@/lib/storage";
 import { db } from "@/db";
 import {
   lmsAssignmentFiles,
@@ -244,7 +244,7 @@ export async function GET(req: Request) {
       }
     }
 
-    const buffer = await getPrivateStorage().getObject(key);
+    const buffer = await getStorage().getObject(key);
     const safeName = fileName.replace(/[\r\n"\\]/g, "_");
     return new Response(new Uint8Array(buffer), {
       headers: {

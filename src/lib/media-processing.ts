@@ -68,6 +68,59 @@ function colourHex(value: { r: number; g: number; b: number }) {
     .join("")}`;
 }
 
+/** Magic-byte sniffing for the no-sharp fallback (below) — trusts nothing
+    from the client, only the file header itself. Same accepted set as the
+    sharp pipeline: JPEG, PNG, WebP, AVIF, HEIC/HEIF. */
+const SNIFFED_FORMATS = [
+  {
+    test: (b: Buffer) =>
+      b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+    mime: "image/jpeg",
+    ext: "jpg",
+  },
+  {
+    test: (b: Buffer) =>
+      b.length > 8 &&
+      b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47,
+    mime: "image/png",
+    ext: "png",
+  },
+  {
+    test: (b: Buffer) =>
+      b.length >= 12 &&
+      b.toString("latin1", 0, 4) === "RIFF" &&
+      b.toString("latin1", 8, 12) === "WEBP",
+    mime: "image/webp",
+    ext: "webp",
+  },
+  {
+    test: (b: Buffer) =>
+      b.length >= 12 &&
+      b.toString("latin1", 4, 8) === "ftyp" &&
+      ["avif", "avis"].includes(b.toString("latin1", 8, 12)),
+    mime: "image/avif",
+    ext: "avif",
+  },
+  {
+    test: (b: Buffer) =>
+      b.length >= 12 &&
+      b.toString("latin1", 4, 8) === "ftyp" &&
+      ["heic", "heix", "hevc", "heim", "heis", "mif1", "msf1"].includes(
+        b.toString("latin1", 8, 12),
+      ),
+    mime: "image/heif",
+    ext: "heic",
+  },
+] as const;
+
+function buildPrefix(input: ProcessMediaInput, hash: string) {
+  const folder = slug(input.folder || "site-assets", "site-assets");
+  const title = (input.title || path.parse(input.filename).name).trim();
+  const baseName = `${slug(title, "image")}-${hash.slice(0, 14)}`;
+  const year = new Date().getFullYear();
+  return { folder, title, prefix: `images/${folder}/${year}/${baseName}` };
+}
+
 export type ProcessMediaInput = {
   buffer: Buffer;
   filename: string;
@@ -106,7 +159,15 @@ export async function processAndStoreImage(input: ProcessMediaInput) {
     return { asset: duplicate, variants, duplicate: true };
   }
 
-  const sharp = await getSharp();
+  // v2.8.66.4 — degrade instead of fail: if the native pipeline cannot load
+  // (broken/missing binaries on the host — the Vercel lesson), store the
+  // ORIGINAL file as the master variant rather than killing the upload.
+  // The upload loop becomes network/CORS-sensitive only. Images saved this
+  // way carry "unknown" dimensions and no blur/dominant colour until the
+  // native pipeline returns (a redeploy), and EXIF is NOT stripped here —
+  // accepted trade-off of the emergency path, documented for the audit log.
+  const sharp = await getSharp().catch(() => null);
+  if (!sharp) return storeOriginalImage(input, hash);
 
   let metadata: Metadata;
   try {
@@ -130,11 +191,7 @@ export async function processAndStoreImage(input: ProcessMediaInput) {
   }
 
   const storage = getStorage();
-  const folder = slug(input.folder || "site-assets", "site-assets");
-  const title = (input.title || path.parse(input.filename).name).trim();
-  const baseName = `${slug(title, "image")}-${hash.slice(0, 14)}`;
-  const year = new Date().getFullYear();
-  const prefix = `images/${folder}/${year}/${baseName}`;
+  const { folder, title, prefix } = buildPrefix(input, hash);
 
   const oriented = sharp(input.buffer, {
     failOn: "error",
@@ -262,6 +319,93 @@ export async function processAndStoreImage(input: ProcessMediaInput) {
     await Promise.all(
       uploadedKeys.map((key) => storage.deleteObject(key).catch(() => undefined)),
     );
+    throw error;
+  }
+}
+
+/**
+ * v2.8.66.4 — the no-sharp emergency path. Stores the ORIGINAL bytes as the
+ * single "master" variant after a magic-byte sniff (JPEG/PNG/WebP/AVIF/HEIC
+ * only — the same accepted set as the sharp pipeline, but judged from the
+ * file header, never from client headers). No resize, no WebP, no EXIF
+ * strip, no blur/dominant colour, dimensions unknown. Exported so a sandbox
+ * probe can exercise it directly without forcing sharp to fail.
+ */
+export async function storeOriginalImage(input: ProcessMediaInput, hash: string) {
+  const sniffed = SNIFFED_FORMATS.find((format) => format.test(input.buffer));
+  if (!sniffed) {
+    throw new Error("Supported image types are JPEG, PNG, WebP, AVIF and HEIC.");
+  }
+
+  const storage = getStorage();
+  const { folder, title, prefix } = buildPrefix(input, hash);
+  const key = `${prefix}-master.${sniffed.ext}`;
+
+  await storage.putObject({
+    key,
+    body: input.buffer,
+    contentType: sniffed.mime,
+    cacheControl: IMMUTABLE_CACHE,
+  });
+
+  try {
+    const [asset] = await db
+      .insert(mediaAssets)
+      .values({
+        title,
+        altText: (input.altText || title).trim(),
+        caption: input.caption?.trim() || null,
+        folder,
+        category: input.category?.trim() || "Uncategorised",
+        provider: storage.driver,
+        objectKey: key,
+        originalFilename: input.filename.slice(0, 500),
+        mimeType: sniffed.mime,
+        // Dimensions/blur/dominant need the native pipeline — null = unknown.
+        width: null,
+        height: null,
+        originalSize: input.buffer.length,
+        dominantColor: null,
+        blurDataUrl: null,
+        contentHash: hash,
+        status: "ready",
+        uploadedBy: input.userId,
+      })
+      .returning();
+
+    const [variant] = await db
+      .insert(mediaVariants)
+      .values({
+        assetId: asset.id,
+        variantName: "master",
+        format: sniffed.ext,
+        // media_variants.width/height are NOT NULL — 0 reads as "unknown"
+        // everywhere (orientation() and friends treat falsy as unknown).
+        width: 0,
+        height: 0,
+        objectKey: key,
+        fileSize: input.buffer.length,
+        publicUrl: storage.getPublicUrl(key),
+      })
+      .returning();
+
+    await db.insert(adminAuditLogs).values({
+      userId: input.userId,
+      action: "upload_media",
+      entity: "media_asset",
+      entityId: String(asset.id),
+      details: {
+        provider: storage.driver,
+        filename: input.filename,
+        variants: ["master"],
+        processing: "original-stored",
+        reason: "sharp-unavailable",
+      },
+    });
+
+    return { asset, variants: [variant], duplicate: false };
+  } catch (error) {
+    await storage.deleteObject(key).catch(() => undefined);
     throw error;
   }
 }

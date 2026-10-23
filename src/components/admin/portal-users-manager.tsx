@@ -10,7 +10,6 @@ import {
   GraduationCap,
   HeartHandshake,
   KeyRound,
-  Landmark,
   Loader2,
   Plus,
   RefreshCcw,
@@ -61,12 +60,6 @@ const ROLE_META: Record<string, { label: string; icon: typeof GraduationCap; bad
     label: "LMS Admin",
     icon: GraduationCap,
     badge: "border-amber-400/40 bg-amber-400/10 text-amber-300",
-  },
-  /* v2.8.63.0 — the report-card certification role. */
-  principal: {
-    label: "Principal",
-    icon: Landmark,
-    badge: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
   },
 };
 
@@ -184,7 +177,6 @@ export function PortalUsersManager({ initialUsers }: { initialUsers: PortalUserR
       teacher: users.filter((u) => u.role === "teacher").length,
       parent: users.filter((u) => u.role === "parent").length,
       lms_admin: users.filter((u) => u.role === "lms_admin").length,
-      principal: users.filter((u) => u.role === "principal").length,
       disabled: users.filter((u) => !u.active).length,
     }),
     [users],
@@ -346,7 +338,6 @@ export function PortalUsersManager({ initialUsers }: { initialUsers: PortalUserR
         <span className="hidden items-center gap-2 text-[11px] text-white/35 sm:flex">
           {counts.student} students · {counts.teacher} teachers · {counts.parent} parents
           {counts.lms_admin > 0 && ` · ${counts.lms_admin} LMS admin${counts.lms_admin > 1 ? "s" : ""}`}
-          {counts.principal > 0 && ` · ${counts.principal} principal${counts.principal > 1 ? "s" : ""}`}
           {counts.disabled > 0 && ` · ${counts.disabled} paused`}
         </span>
         <span className="flex-1" />
@@ -518,7 +509,6 @@ export function PortalUsersManager({ initialUsers }: { initialUsers: PortalUserR
                 <option value="teacher" className="bg-[#141412]">Teacher portal</option>
                 <option value="parent" className="bg-[#141412]">Parent portal</option>
                 <option value="lms_admin" className="bg-[#141412]">LMS Admin (separate studio)</option>
-                <option value="principal" className="bg-[#141412]">Principal (certifies report cards)</option>
               </select>
               <PasswordField
                 value={addPassword}

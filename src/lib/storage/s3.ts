@@ -1,25 +1,14 @@
 /**
- * S3-compatible media storage for Backblaze B2, MinIO (development) and
- * Cloudflare R2 (production). All three speak the S3 API and support
- * presigned PUT uploads, so the browser uploads directly to the provider
- * and then calls `/api/admin/media/finalize` to run the image pipeline.
+ * S3-compatible media storage for MinIO (development) and Cloudflare R2
+ * (production). Both providers speak the S3 API and support presigned PUT
+ * uploads, so the browser uploads directly to the provider and then calls
+ * `/api/admin/media/finalize` to run the image pipeline.
  *
- * Backblaze B2 rides the R2_* env block (it is S3-compatible) — see
- * `.env.example` for the exact mapping and the R2_REGION requirement.
- *
- * Serving (v2.8.66.0): `getPublicUrl` returns the stable app path
- * (`/api/media/file?key=…`) for EVERY provider — the same contract as the
- * database/local drivers. The firewall route then 302s browsers to the
- * provider: the plain bucket URL on a public bucket, or a PRESIGNED GET URL
- * (default 6 days) when `R2_PRIVATE_BUCKET=1`. Backblaze only asks for a
- * credit card to create PUBLIC buckets, so the school can run a PRIVATE
- * bucket and still serve every site image with zero app-server bandwidth.
- *
- * Environment variables (see `.env.example` / DEPLOY-VERCEL.md):
+ * Environment variables (see `.env.example` / README-NEW.md):
  * - MinIO: MINIO_ENDPOINT, MINIO_REGION, MINIO_BUCKET, MINIO_ACCESS_KEY_ID,
- *   MINIO_SECRET_ACCESS_KEY
- * - R2/B2: R2_ACCOUNT_ID, R2_ENDPOINT, R2_REGION, R2_BUCKET,
- *   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PRIVATE_BUCKET
+ *   MINIO_SECRET_ACCESS_KEY, MINIO_PUBLIC_BASE_URL
+ * - R2:    R2_ACCOUNT_ID, R2_ENDPOINT, R2_BUCKET, R2_ACCESS_KEY_ID,
+ *   R2_SECRET_ACCESS_KEY, R2_PUBLIC_BASE_URL
  */
 
 import {
@@ -40,22 +29,14 @@ type S3ProviderConfig = {
   bucket: string;
   accessKeyId: string;
   secretAccessKey: string;
-  /** Private bucket → reads are served through presigned GET URLs. */
-  privateBucket: boolean;
+  /** Public CDN/bucket base URL; falls back to the endpoint when unset. */
+  publicBaseUrl: string | null;
   forcePathStyle: boolean;
 };
 
 /** Presigned PUT lifetime bounds: 1 minute … 7 days (R2's maximum). */
 const MIN_SIGNED_TTL_SECONDS = 60;
 const MAX_SIGNED_TTL_SECONDS = 604_800;
-
-/** Presigned GET lifetime for PRIVATE buckets: 6 days (SigV4 caps at 7). */
-const SIGNED_READ_TTL_SECONDS = 518_400;
-
-function readBoolEnv(name: string): boolean {
-  const value = process.env[name]?.trim().toLowerCase();
-  return value === "1" || value === "true" || value === "yes" || value === "on";
-}
 
 function readRequiredEnv(name: string, provider: string): string {
   const value = process.env[name]?.trim();
@@ -79,7 +60,9 @@ export function minioConfigFromEnv(): S3ProviderConfig {
     bucket: readRequiredEnv("MINIO_BUCKET", "MinIO"),
     accessKeyId: readRequiredEnv("MINIO_ACCESS_KEY_ID", "MinIO"),
     secretAccessKey: readRequiredEnv("MINIO_SECRET_ACCESS_KEY", "MinIO"),
-    privateBucket: readBoolEnv("MINIO_PRIVATE_BUCKET"),
+    publicBaseUrl: process.env.MINIO_PUBLIC_BASE_URL?.trim()
+      ? trimTrailingSlashes(process.env.MINIO_PUBLIC_BASE_URL.trim())
+      : null,
     // MinIO serves buckets under path-style URLs only.
     forcePathStyle: true,
   };
@@ -96,16 +79,14 @@ export function r2ConfigFromEnv(): S3ProviderConfig {
   return {
     driver: "r2",
     endpoint: trimTrailingSlashes(endpoint || `https://${accountId}.r2.cloudflarestorage.com`),
-    // R2 ignores the region and "auto" is canonical there. Backblaze B2 rides
-    // this same config block and NEEDS the bucket's real region (e.g.
-    // "us-west-004") for Signature V4 — set R2_REGION when using B2.
-    region: process.env.R2_REGION?.trim() || "auto",
+    // R2 ignores the region but the S3 client requires one; "auto" is canonical.
+    region: "auto",
     bucket: readRequiredEnv("R2_BUCKET", "R2"),
     accessKeyId: readRequiredEnv("R2_ACCESS_KEY_ID", "R2"),
     secretAccessKey: readRequiredEnv("R2_SECRET_ACCESS_KEY", "R2"),
-    // Backblaze B2 private buckets need no credit card — with this flag the
-    // media firewall 302s to presigned GET URLs instead of plain bucket URLs.
-    privateBucket: readBoolEnv("R2_PRIVATE_BUCKET"),
+    publicBaseUrl: process.env.R2_PUBLIC_BASE_URL?.trim()
+      ? trimTrailingSlashes(process.env.R2_PUBLIC_BASE_URL.trim())
+      : null,
     // The R2 API endpoint is path-style.
     forcePathStyle: true,
   };
@@ -113,18 +94,17 @@ export function r2ConfigFromEnv(): S3ProviderConfig {
 
 export class S3MediaStorage implements MediaStorage {
   readonly driver: Extract<MediaStorageDriver, "minio" | "r2">;
-  /** True when the bucket is private → reads go through presigned GET URLs. */
-  readonly privateBucket: boolean;
 
   private readonly client: S3Client;
   private readonly bucket: string;
   private readonly endpoint: string;
+  private readonly publicBaseUrl: string | null;
 
   constructor(config: S3ProviderConfig) {
     this.driver = config.driver;
     this.bucket = config.bucket;
     this.endpoint = config.endpoint;
-    this.privateBucket = config.privateBucket;
+    this.publicBaseUrl = config.publicBaseUrl;
     this.client = new S3Client({
       region: config.region,
       endpoint: config.endpoint,
@@ -200,48 +180,13 @@ export class S3MediaStorage implements MediaStorage {
     };
   }
 
-  /**
-   * Stable, non-expiring URL — the same app path the database and local
-   * drivers return. Persisting provider URLs would hard-wire CMS content to
-   * one provider and 401 on PRIVATE buckets, so every provider serves
-   * through the `/api/media/file` firewall, which 302s to the provider
-   * (plain or presigned per bucket mode) — see {@link getProviderUrl}.
-   */
   getPublicUrl(key: string): string {
-    return `/api/media/file?key=${encodeURIComponent(assertSafeObjectKey(key))}`;
-  }
-
-  /**
-   * Plain bucket URL for PUBLIC buckets — the firewall redirect target.
-   * Never store this: only good until the bucket mode or provider changes.
-   */
-  getProviderUrl(key: string): string {
-    const encoded = assertSafeObjectKey(key)
-      .split("/")
-      .map(encodeURIComponent)
-      .join("/");
-    return `${this.endpoint}/${this.bucket}/${encoded}`;
-  }
-
-  /**
-   * Presigned GET URL for PRIVATE buckets — the firewall redirect target.
-   * Pure local HMAC signing (the SDK makes no network call), so minting one
-   * per redirect costs nothing and keeps app-server bandwidth at ~zero.
-   */
-  async getSignedReadUrl(
-    key: string,
-    expiresInSeconds = SIGNED_READ_TTL_SECONDS,
-  ): Promise<string> {
     const safeKey = assertSafeObjectKey(key);
-    const ttl = Math.min(
-      Math.max(Math.floor(expiresInSeconds) || SIGNED_READ_TTL_SECONDS, MIN_SIGNED_TTL_SECONDS),
-      MAX_SIGNED_TTL_SECONDS,
-    );
-    return getSignedUrl(
-      this.client,
-      new GetObjectCommand({ Bucket: this.bucket, Key: safeKey }),
-      { expiresIn: ttl },
-    );
+    const encoded = safeKey.split("/").map(encodeURIComponent).join("/");
+    if (this.publicBaseUrl) {
+      return `${this.publicBaseUrl}/${encoded}`;
+    }
+    return `${this.endpoint}/${this.bucket}/${encoded}`;
   }
 }
 

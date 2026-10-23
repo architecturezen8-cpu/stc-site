@@ -118,21 +118,7 @@ const approved = (recordId: number | null): VerificationOutcome => ({
 
 /* ── Per-role verifiers ────────────────────────────────────────────────── */
 
-/**
- * v2.8.62.0 — the owner: "verification records daddi godak welawata thawa
- * details danna wenawa ne" — the office register may now hold JUST the
- * essentials (admission no, name, class). Every OTHER check is skipped when
- * the REGISTER side is blank: blank office data can never fail a family,
- * it simply isn't evidence. Filling the register later (Edit) tightens the
- * checks again automatically.
- */
-function optionalMatch(inputValue: string, registerValue: string | null): boolean {
-  const stored = (registerValue ?? "").trim();
-  if (!stored) return true; // nothing recorded — nothing to check against
-  return namesMatch(inputValue, stored);
-}
-
-/** Student: admission no + name + class (+ register no + parents WHEN HELD). */
+/** Student: admission no + name + class + register no + both parents. */
 export async function verifyStudentRegistration(input: {
   admissionNo: string;
   fullName: string;
@@ -151,14 +137,16 @@ export async function verifyStudentRegistration(input: {
   if (normalizeClass(input.className) !== normalizeClass(record.className)) {
     return pending("Class does not match the school register", record.id);
   }
-  const storedRegisterNo = (record.registerNo ?? "").trim();
-  if (storedRegisterNo && normalizeId(input.registerNo) !== normalizeId(storedRegisterNo)) {
+  if (
+    record.registerNo &&
+    normalizeId(input.registerNo) !== normalizeId(record.registerNo)
+  ) {
     return pending("Register number does not match the school register", record.id);
   }
-  if (!optionalMatch(input.fatherName, record.fatherName)) {
+  if (!namesMatch(input.fatherName, record.fatherName)) {
     return pending("Father's name does not match the school register", record.id);
   }
-  if (!optionalMatch(input.motherName, record.motherName)) {
+  if (!namesMatch(input.motherName, record.motherName)) {
     return pending("Mother's name does not match the school register", record.id);
   }
   return approved(record.id);
@@ -205,29 +193,12 @@ export async function verifyParentRegistration(input: {
   }
   const relation = input.relation.trim().toLowerCase();
   if (relation === "father") {
-    /* v2.8.62.0 — a register row without the father's name holds no
-       evidence either way: the family is never auto-approved on a blank,
-       it goes to the office queue with an honest reason. */
-    const stored = (record.fatherName ?? "").trim();
-    if (!stored) {
-      return pending(
-        "The office register has no father's name recorded yet — this account needs office approval",
-        record.id,
-      );
-    }
-    return namesMatch(input.guardianName, stored)
+    return namesMatch(input.guardianName, record.fatherName)
       ? approved(record.id)
       : pending("Name does not match the father on the school register", record.id);
   }
   if (relation === "mother") {
-    const stored = (record.motherName ?? "").trim();
-    if (!stored) {
-      return pending(
-        "The office register has no mother's name recorded yet — this account needs office approval",
-        record.id,
-      );
-    }
-    return namesMatch(input.guardianName, stored)
+    return namesMatch(input.guardianName, record.motherName)
       ? approved(record.id)
       : pending("Name does not match the mother on the school register", record.id);
   }

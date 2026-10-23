@@ -60,7 +60,7 @@ export type ProfileChildView = {
 
 export type PortalProfile = {
   ok: true;
-  role: "student" | "teacher" | "parent" | "principal";
+  role: "student" | "teacher" | "parent";
   account: {
     fullName: string;
     email: string;
@@ -247,7 +247,7 @@ async function parentProfileParts(accountId: number) {
 }
 
 export async function getPortalProfile(input: {
-  role: "student" | "teacher" | "parent" | "principal";
+  role: "student" | "teacher" | "parent";
   accountId: number;
   email: string;
   fullName: string;
@@ -305,8 +305,6 @@ export async function getPortalProfile(input: {
     } else if (input.role === "teacher") {
       const parts = await teacherProfileParts(input.accountId);
       base.record = parts.record;
-    } else if (input.role === "principal") {
-      /* v2.8.63.0 — no register bridge: the account card alone. */
     } else {
       const parts = await parentProfileParts(input.accountId);
       base.record = parts.record;

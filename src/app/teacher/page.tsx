@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BookOpen, CalendarClock, Clock, ClipboardList, MapPin, NotebookPen, Users, CalendarCheck2, Megaphone } from "lucide-react";
+import { BookOpen, Clock, ClipboardList, MapPin, NotebookPen, Users, CalendarCheck2, Megaphone } from "lucide-react";
 import { PortalShell } from "@/components/portal/portal-shell";
 import {
   EmptyNote,
@@ -59,7 +59,6 @@ export default async function TeacherDashboardPage() {
         { label: "Chat", href: "/teacher/chat", badge: chatBadge },
         /* v2.8.45.0 — Phase 3.1-e: marks / materials / notices pages. */
         { label: "Marks", href: "/teacher/marks" },
-        { label: "Report card", href: "/teacher/report-card" },
         { label: "Materials", href: "/teacher/materials" },
         { label: "Notices", href: "/teacher/notices" },
         { label: "Timetable", href: "/teacher/timetable" },
@@ -121,7 +120,6 @@ export default async function TeacherDashboardPage() {
           slots={data.slots}
           ctaLabel="Full week →"
           ctaHref="/teacher/timetable"
-          chipHref="#timetable"
         />
 
         {/* Reference-style stat cards */}
@@ -137,9 +135,6 @@ export default async function TeacherDashboardPage() {
               value: String(data.subjectCount),
               label: "Subjects",
               icon: <ClipboardList size={17} aria-hidden="true" />,
-              /* v2.8.61.0 — lands on the classes wall where every class ·
-                  subject pairing is listed. */
-              href: "#classes",
             },
             {
               value: String(data.studentCount),
@@ -182,6 +177,7 @@ export default async function TeacherDashboardPage() {
               <Panel
                 title="Today's Lessons"
                 subtitle={`${data.dayLabel} · ${data.dateLabel}`}
+                action="search-filter"
               >
                 {data.slots.length === 0 ? (
                   <EmptyNote>
@@ -207,15 +203,6 @@ export default async function TeacherDashboardPage() {
                     ))}
                   </div>
                 )}
-                {/* v2.8.61.0 — replaces the dead Search/Filter circles: a real
-                    door to the full-week grid (mirrors the student panel). */}
-                <Link
-                  href="/teacher/timetable"
-                  className="mt-3 flex items-center justify-center gap-1.5 rounded-full border border-[var(--pt-border)] bg-[var(--pt-panel-soft)] px-4 py-2 text-[12px] font-semibold text-[var(--pt-body)] transition-colors hover:border-[var(--pt-accent)] hover:text-[var(--pt-heading)]"
-                >
-                  <CalendarClock size={13} aria-hidden="true" />
-                  Open the full week
-                </Link>
               </Panel>
             </div>
 
@@ -242,6 +229,7 @@ export default async function TeacherDashboardPage() {
               <Panel
                 title="My Class Rosters"
                 subtitle="Select a class to see every student"
+                action="filter"
               >
                 <TeacherClassRoster rosters={data.rosters} />
               </Panel>
